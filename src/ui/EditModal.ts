@@ -3,7 +3,7 @@ import { App, Modal, TFile } from 'obsidian';
 export interface EditModalOptions {
 	selection: string;
 	file: TFile;
-	onSubmit: (instruction: string) => void;
+	onSubmit: (instruction: string) => Promise<void>;
 }
 
 const PRESETS = {
@@ -23,6 +23,8 @@ export class EditModal extends Modal {
 	private options: EditModalOptions;
 	private instructionInput: HTMLTextAreaElement | null = null;
 	private generateBtn: HTMLButtonElement | null = null;
+	private cancelBtn: HTMLButtonElement | null = null;
+	private isGenerating: boolean = false;
 
 	constructor(app: App, options: EditModalOptions) {
 		super(app);
@@ -83,11 +85,11 @@ export class EditModal extends Modal {
 		// Action buttons
 		const actionsEl = contentEl.createDiv({ cls: 'vp-modal-actions' });
 
-		const cancelBtn = actionsEl.createEl('button', {
+		this.cancelBtn = actionsEl.createEl('button', {
 			cls: 'vp-btn',
 			text: 'Cancel',
 		});
-		cancelBtn.addEventListener('click', () => this.close());
+		this.cancelBtn.addEventListener('click', () => this.close());
 
 		this.generateBtn = actionsEl.createEl('button', {
 			cls: 'vp-btn vp-btn-primary',
@@ -111,14 +113,43 @@ export class EditModal extends Modal {
 		}
 	}
 
-	private handleSubmit() {
-		if (!this.instructionInput) return;
+	private async handleSubmit() {
+		if (!this.instructionInput || this.isGenerating) return;
 
 		const instruction = this.instructionInput.value.trim();
 		if (!instruction) return;
 
-		this.options.onSubmit(instruction);
-		this.close();
+		// Set loading state
+		this.isGenerating = true;
+		if (this.generateBtn) {
+			this.generateBtn.textContent = 'Generating...';
+			this.generateBtn.disabled = true;
+		}
+		if (this.cancelBtn) {
+			this.cancelBtn.disabled = true;
+		}
+		if (this.instructionInput) {
+			this.instructionInput.disabled = true;
+		}
+
+		try {
+			await this.options.onSubmit(instruction);
+			this.close();
+		} catch (err) {
+			console.error('EditModal: Error during generation:', err);
+			// Reset UI on error
+			this.isGenerating = false;
+			if (this.generateBtn) {
+				this.generateBtn.textContent = 'Generate';
+				this.generateBtn.disabled = false;
+			}
+			if (this.cancelBtn) {
+				this.cancelBtn.disabled = false;
+			}
+			if (this.instructionInput) {
+				this.instructionInput.disabled = false;
+			}
+		}
 	}
 
 	private capitalizeFirst(str: string): string {

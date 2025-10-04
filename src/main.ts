@@ -1,9 +1,11 @@
-import { App, Plugin, PluginSettingTab, Setting, MarkdownView, Notice } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, MarkdownView, Notice, Editor, TFile, EditorPosition } from 'obsidian';
 import { DiscoverView, VIEW_TYPE_DISCOVER } from './ui/DiscoverView';
 import { IndexingService, AnySerializedIndex } from './services/IndexingService';
 import { RetrievalService } from './services/RetrievalService';
 import { EditModal } from './ui/EditModal';
 import { SuggestionCallout } from './ui/SuggestionCallout';
+import { OllamaAdapter } from './llm/OllamaAdapter';
+import { ContextAssembler } from './services/ContextAssembler';
 
 interface SerendipityPluginSettings {
 	ollamaUrl: string;
@@ -173,7 +175,6 @@ export default class SerendipityPlugin extends Plugin {
 	handleAIEdit() {
 		console.log('VaultPilot: handleAIEdit called');
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-		console.log('VaultPilot: Active view:', view);
 
 		if (!view) {
 			new Notice('No active note found');
@@ -182,7 +183,6 @@ export default class SerendipityPlugin extends Plugin {
 
 		const editor = view.editor;
 		const selection = editor.getSelection();
-		console.log('VaultPilot: Selection length:', selection.length);
 
 		if (!selection || selection.trim().length === 0) {
 			new Notice('Please select some text first');
@@ -195,19 +195,75 @@ export default class SerendipityPlugin extends Plugin {
 			return;
 		}
 
-		console.log('VaultPilot: Opening EditModal');
+		// Save selection positions BEFORE opening modal
+		const selectionStart = editor.getCursor('from');
+		const selectionEnd = editor.getCursor('to');
+
 		// Open the edit modal
 		new EditModal(this.app, {
 			selection,
 			file,
-			onSubmit: (instruction) => {
-				// Placeholder: will be wired in Ticket #11
-				console.log('Instruction received:', instruction);
-				console.log('Selection:', selection.slice(0, 50) + '...');
-				console.log('File:', file.path);
-				new Notice('AI editing will be implemented in Ticket #11');
+			onSubmit: async (instruction) => {
+				await this.generateSuggestion(editor, file, selection, instruction, selectionStart, selectionEnd);
 			},
 		}).open();
+	}
+
+	async generateSuggestion(
+		editor: Editor,
+		file: TFile,
+		selection: string,
+		instruction: string,
+		selectionStart: EditorPosition,
+		selectionEnd: EditorPosition
+	) {
+		console.log('VaultPilot: generateSuggestion called');
+		console.log('VaultPilot: Instruction:', instruction);
+
+		try {
+			// Assemble context with retrieval
+			const assembler = new ContextAssembler(this.app, this.retrievalService);
+			const prompt = assembler.assembleContext(selection, file, instruction);
+
+			console.log('VaultPilot: Prompt assembled, calling Ollama...');
+
+			// Stream response from Ollama
+			const adapter = new OllamaAdapter(this.settings.ollamaUrl);
+			const chunks: string[] = [];
+
+			await adapter.stream(prompt, (chunk) => {
+				chunks.push(chunk);
+			});
+
+			const suggestion = chunks.join('').trim();
+
+			console.log('VaultPilot: Received suggestion:', suggestion.slice(0, 100) + '...');
+
+			if (!suggestion || suggestion.length === 0) {
+				new Notice('⚠️ No suggestion generated');
+				return;
+			}
+
+			// Insert suggestion callout
+			const callout = new SuggestionCallout(this.app);
+			callout.insert(editor, {
+				original: selection,
+				suggestion,
+				selectionStart,
+				selectionEnd,
+			});
+
+			new Notice('✓ AI suggestion generated');
+		} catch (err) {
+			console.error('VaultPilot: AI Edit error:', err);
+
+			// Check if it's a connection error
+			if (err instanceof Error && (err.message.includes('fetch') || err.message.includes('ECONNREFUSED'))) {
+				new Notice('⚠️ Could not connect to Ollama. Is it running?');
+			} else {
+				new Notice('⚠️ Error generating suggestion: ' + (err instanceof Error ? err.message : 'Unknown error'));
+			}
+		}
 	}
 
 	testSuggestionCallout() {

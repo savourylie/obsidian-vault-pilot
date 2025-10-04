@@ -127,11 +127,14 @@ export class SuggestionCallout {
 			ch: lines.length > 1 ? lines[lines.length - 1].length : selectionStart.ch + suggestion.length
 		};
 
-		// Set cursor to end of replaced text (prevents weird selection)
-		editor.setCursor(newEndPos);
-
-		// Then remove the callout (positions changed but we don't care)
+		// Then remove the callout
 		this.removeCallout(editor);
+
+		// Defer cursor setting to prevent weird selections from race conditions
+		setTimeout(() => {
+			editor.focus();
+			editor.setCursor(newEndPos);
+		}, 50); // A small delay is often enough
 
 		new Notice('✓ Applied AI suggestion');
 	}
@@ -154,7 +157,7 @@ export class SuggestionCallout {
 
 		// Find the last occurrence of the ai-suggestion callout header
 		const headerPattern = '> [!ai-suggestion]';
-		let lastIndex = content.lastIndexOf(headerPattern);
+		const lastIndex = content.lastIndexOf(headerPattern);
 
 		if (lastIndex === -1) {
 			console.warn('VaultPilot: Could not find ai-suggestion callout to remove');
@@ -167,25 +170,26 @@ export class SuggestionCallout {
 			startIndex--;
 		}
 
-		// Find the end of the callout (first line that doesn't start with >)
-		let endIndex = lastIndex;
-		const lines = content.substring(startIndex).split('\n');
-		let lineCount = 0;
-
+		// Find the end of the callout block by finding the text block and its length
+		const contentAfterStart = content.substring(startIndex);
+		const lines = contentAfterStart.split('\n');
+		const calloutLines = [];
 		for (const line of lines) {
-			if (lineCount > 0 && !line.startsWith('>') && line.trim() !== '') {
+			if (calloutLines.length > 0 && !line.startsWith('>')) {
 				break;
 			}
-			endIndex += line.length + 1; // +1 for newline
-			lineCount++;
+			calloutLines.push(line);
 		}
 
-		// Include trailing empty lines
-		while (endIndex < content.length && content[endIndex] === '\n') {
+		// Rejoin to get the exact block text, then calculate end offset
+		const calloutBlockText = calloutLines.join('\n');
+		let endIndex = startIndex + calloutBlockText.length;
+
+		// If the block is followed by a newline, we'll want to remove that too for a clean removal.
+		if (endIndex < content.length && content.charAt(endIndex) === '\n') {
 			endIndex++;
 		}
 
-		// Calculate positions
 		const startPos = editor.offsetToPos(startIndex);
 		const endPos = editor.offsetToPos(endIndex);
 
