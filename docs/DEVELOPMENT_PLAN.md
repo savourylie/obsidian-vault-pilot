@@ -1,6 +1,6 @@
-# Serendipity Engine - v0.1 Development Plan
+# VaultPilot - v0.1 Development Plan
 
-This document outlines the development phases for building the v0.1 MVP of the Serendipity Engine Obsidian plugin. The work is structured to deliver value incrementally, starting with a solid foundation and building features on top of it.
+This document outlines the development phases for building the v0.1 MVP of the VaultPilot Obsidian plugin. The work is structured to deliver value incrementally, starting with a solid foundation and building features on top of it.
 
 ## Phase 1: Project Setup & Core Scaffolding
 

@@ -1,4 +1,4 @@
-# Serendipity Engine (working title) — Obsidian Plugin
+# VaultPilot — Obsidian Plugin
 
 > **Cursor for note‑taking**: a serendipity engine that surfaces forgotten connections **with precise context control**, plus a **safe, surgical** inline AI editor.
 
@@ -18,7 +18,7 @@
 1. In Obsidian, enable **Community plugins**.
 2. Install **BRAT (Beta Reviewers Auto‑update Tester)** from Community plugins.
 3. In BRAT → *Add Beta plugin* → enter repo: `yourname/serendipity-engine-obsidian` *(placeholder)*.
-4. Toggle the plugin on. Open **Settings → Serendipity Engine** to configure.
+4. Toggle the plugin on. Open **Settings → VaultPilot** to configure.
 
 > Don’t have the repo yet? You can build from source (below) and drop into your vault.
 

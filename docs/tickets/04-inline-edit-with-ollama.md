@@ -28,4 +28,4 @@ This ticket focuses on implementing the core "Edit with AI" feature. It includes
 - [ ] Choose and integrate a lightweight diffing library (e.g., `diff`).
 - [ ] Implement the logic to insert the suggestion callout.
 - [ ] Implement the `apply` logic using `editor.replaceSelection()` to ensure it's on the undo stack.
-- [ ] Add settings in the plugin's setting tab to configure the Ollama endpoint URL.
+- [x] Add settings in the plugin's setting tab to configure the Ollama endpoint URL.

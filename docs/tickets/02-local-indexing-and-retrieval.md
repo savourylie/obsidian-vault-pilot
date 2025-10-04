@@ -1,7 +1,7 @@
 # Ticket 2: Local-First Indexing & Retrieval
 
 **Phase:** 2 - Local-First Indexing & Retrieval
-**Status:** To Do
+**Status:** Done
 
 ## Description
 
@@ -9,19 +9,21 @@ This ticket focuses on building the core offline search capability of the plugin
 
 ## Acceptance Criteria
 
-1.  A lightweight, TypeScript-compatible BM25 library is chosen, justified, and added as a dependency.
-2.  An `IndexingService` is created that can scan all `.md` files in the vault.
-3.  The service builds a BM25 index from the documents and can save/load it from the plugin's data directory.
-4.  The service listens to Obsidian's file system events (`create`, `modify`, `delete`) to keep the index up-to-date.
-5.  The indexing process correctly ignores files with `ai.index: false` in their frontmatter.
-6.  A `RetrievalService` is created with a method `search(query: string)` that returns a ranked list of file paths.
-7.  Unit tests are written for the core indexing and retrieval logic.
+1.  Local relevance scoring engine implemented (initial TF‑IDF baseline; BM25 may replace later) and runs fully offline.
+2.  `IndexingService` scans all `.md` files via `app.vault.getMarkdownFiles()`, reads title and content, and respects `ai.index: false` frontmatter.
+3.  Index persistence: saved/loaded via plugin data with `schemaVersion` and `timestamp`; rebuilds on version mismatch or missing data.
+4.  Incremental updates: listens to `create`, `modify`, `delete`, `rename` and `metadataCache` `changed` events to keep the index fresh.
+5.  `RetrievalService.search(query: string, opts?: { limit?: number })` returns `Array<{ file: TFile, score: number, snippet: string }>`.
+6.  Snippet generator returns a short snippet around the first hit (or first sentence) for each result.
+7.  A `Reindex Vault` command exists to trigger a full rebuild and logs basic progress.
+8.  Headless tests verify indexing and retrieval using the repository’s mock Obsidian harness.
 
 ## Tasks
 
-- [ ] Research and select a BM25 library (e.g., `wink-bm25-text-search`, `lunr`, or a custom implementation).
-- [ ] Implement `IndexingService` with `buildIndex()` and `updateIndex(file)` methods.
-- [ ] Hook into `app.vault.on(...)` and `app.metadataCache.on(...)` events.
-- [ ] Implement frontmatter parsing to check for the `ai.index` flag.
-- [ ] Implement `RetrievalService` that uses the index to perform searches.
-- [ ] Add basic logging to report indexing progress and errors.
+- [x] Implement a no-dependency TF‑IDF baseline (document option to swap in BM25 like `wink-bm25-text-search` later).
+- [x] Build `IndexingService` (`buildIndex()`, `updateIndex(file)`, `removeFromIndex(file)`, `save()`, `load()` with `schemaVersion`).
+- [x] Tokenize/normalize with simple stopword removal; weight titles slightly higher than body.
+- [x] Hook `app.vault.on('create'|'modify'|'delete'|'rename')` and `app.metadataCache.on('changed')` for incremental updates.
+- [x] Implement `RetrievalService.search(query, {limit})` returning `{ file, score, snippet }`; add a simple snippet generator.
+- [x] Add a `Reindex Vault` command in `src/main.ts` and basic progress/error logging.
+- [x] Extend headless tests to cover index build and retrieval correctness.

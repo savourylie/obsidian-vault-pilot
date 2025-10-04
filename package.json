@@ -1,11 +1,15 @@
 {
-  "name": "serendipity-engine",
+  "name": "vault-pilot",
   "version": "0.1.0",
   "description": "A serendipity engine that surfaces forgotten connections with precise context control.",
   "main": "main.js",
   "scripts": {
     "dev": "npx esbuild src/main.ts --bundle --outfile=main.js --platform=node --format=cjs --target=es2018 --sourcemap=inline --external:obsidian",
-    "build": "npx esbuild src/main.ts --bundle --outfile=main.js --platform=node --format=cjs --target=es2018 --minify --external:obsidian"
+    "build": "npx esbuild src/main.ts --bundle --outfile=main.js --platform=node --format=cjs --target=es2018 --minify --external:obsidian",
+    "headless:test": "node scripts/headless-test.js",
+    "headless:test:indexing": "node scripts/indexing-test.js",
+    "headless:test:ollama": "node scripts/ollama-test.js",
+    "headless:test:context": "node scripts/context-assembler-test.js"
   },
   "keywords": [],
   "author": "dev",

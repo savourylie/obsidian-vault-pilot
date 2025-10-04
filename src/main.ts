@@ -1,5 +1,8 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, MarkdownView, Notice } from 'obsidian';
 import { DiscoverView, VIEW_TYPE_DISCOVER } from './ui/DiscoverView';
+import { IndexingService, AnySerializedIndex } from './services/IndexingService';
+import { RetrievalService } from './services/RetrievalService';
+import { EditModal } from './ui/EditModal';
 
 interface SerendipityPluginSettings {
 	ollamaUrl: string;
@@ -11,22 +14,52 @@ const DEFAULT_SETTINGS: SerendipityPluginSettings = {
 
 export default class SerendipityPlugin extends Plugin {
 	settings: SerendipityPluginSettings;
+	private dataBlob: any | undefined;
+	indexingService: IndexingService;
+	retrievalService: RetrievalService;
 
 	async onload() {
 		await this.loadSettings();
 
+		// Init services
+		this.indexingService = new IndexingService(this.app);
+		this.retrievalService = new RetrievalService(this.app, this.indexingService);
+
+		// Load persisted index (if present)
+		const persistedIndex = this.dataBlob?.index as AnySerializedIndex | undefined;
+		if (persistedIndex) {
+			this.indexingService.load(persistedIndex);
+		}
+
 		// Register the Discover View
 		this.registerView(
 			VIEW_TYPE_DISCOVER,
-			(leaf) => new DiscoverView(leaf)
+			(leaf) => new DiscoverView(leaf, this.retrievalService)
 		);
+
+		// Add a ribbon icon for quick access (chat-style icon)
+		this.addRibbonIcon('message-circle', 'VaultPilot: Toggle Discover Panel', () => {
+			this.toggleDiscoverView();
+		});
 
 		// Add command to toggle the Discover view
 		this.addCommand({
 			id: 'toggle-discover-panel',
 			name: 'Toggle Discover Panel',
 			callback: () => {
-				this.activateView();
+				this.toggleDiscoverView();
+			},
+		});
+
+		// Add command to rebuild the local index
+		this.addCommand({
+			id: 'reindex-vault',
+			name: 'Reindex Vault',
+			callback: async () => {
+				console.log('VaultPilot: Reindex started');
+				await this.indexingService.buildIndex();
+				await this.saveIndex();
+				console.log('VaultPilot: Reindex complete');
 			},
 		});
 
@@ -34,44 +67,137 @@ export default class SerendipityPlugin extends Plugin {
 		this.addCommand({
 			id: 'ai-edit-selection',
 			name: 'Edit selection with AI',
-			hotkeys: [{ modifiers: ['Mod', 'Alt'], key: 'k' }],
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'e' }],
 			callback: () => {
-				console.log('Command: Edit selection with AI triggered.');
-				// Logic for this will be in Ticket #4
+				console.log('VaultPilot: ai-edit-selection command triggered');
+				this.handleAIEdit();
 			},
 		});
+		console.log('VaultPilot: ai-edit-selection command registered');
+
+		// Wire vault + metadata events for incremental updates
+		this.registerEvent(this.app.vault.on('create', async (file: any) => {
+			if (file?.extension !== 'md') return;
+			await this.indexingService.updateIndex(file);
+			await this.saveIndex();
+		}));
+		this.registerEvent(this.app.vault.on('modify', async (file: any) => {
+			if (file?.extension !== 'md') return;
+			await this.indexingService.updateIndex(file);
+			await this.saveIndex();
+		}));
+		this.registerEvent(this.app.vault.on('delete', async (file: any) => {
+			if (!file) return;
+			this.indexingService.removeFromIndex(file);
+			await this.saveIndex();
+		}));
+		this.registerEvent(this.app.vault.on('rename', async (file: any, oldPath: string) => {
+			if (oldPath) {
+				this.indexingService.removeFromIndex(oldPath);
+			}
+			if (file?.extension === 'md') {
+				await this.indexingService.updateIndex(file);
+				await this.saveIndex();
+			}
+		}));
+		this.registerEvent((this.app.metadataCache as any).on?.('changed', async (file: any) => {
+			if (file?.extension !== 'md') return;
+			await this.indexingService.updateIndex(file);
+			await this.saveIndex();
+		}));
 
 		// Add the settings tab
 		this.addSettingTab(new SerendipitySettingTab(this.app, this));
 
-		console.log('Serendipity Engine plugin loaded.');
+		console.log('VaultPilot plugin loaded.');
 	}
 
 	onunload() {
-		console.log('Serendipity Engine plugin unloaded.');
+		console.log('VaultPilot plugin unloaded.');
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const blob = await this.loadData();
+		this.dataBlob = blob || {};
+		const loadedSettings = (blob && (blob as any).settings) ? (blob as any).settings : blob;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings || {});
 	}
 
 
 
 	async saveSettings() {
-		await this.saveData(this.settings);
+		this.dataBlob = this.dataBlob || {};
+		(this.dataBlob as any).settings = this.settings;
+		await this.saveData(this.dataBlob);
 	}
 
-	async activateView() {
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_DISCOVER);
+	private async saveIndex() {
+		this.dataBlob = this.dataBlob || {};
+		(this.dataBlob as any).index = this.indexingService.export();
+		await this.saveData(this.dataBlob);
+	}
 
-		await this.app.workspace.getRightLeaf(false).setViewState({
-			type: VIEW_TYPE_DISCOVER,
-			active: true,
-		});
+	async toggleDiscoverView() {
+		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_DISCOVER);
+		if (existing.length > 0) {
+			this.app.workspace.detachLeavesOfType(VIEW_TYPE_DISCOVER);
+			return;
+		}
+
+		let rightLeaf = this.app.workspace.getRightLeaf(false);
+		if (!rightLeaf) {
+			// Ensure a right sidebar leaf exists in fresh sessions
+			rightLeaf = this.app.workspace.getRightLeaf(true);
+		}
+
+			await rightLeaf.setViewState({
+				type: VIEW_TYPE_DISCOVER,
+				active: true,
+			});
 
 		this.app.workspace.revealLeaf(
 			this.app.workspace.getLeavesOfType(VIEW_TYPE_DISCOVER)[0]
 		);
+	}
+
+	handleAIEdit() {
+		console.log('VaultPilot: handleAIEdit called');
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		console.log('VaultPilot: Active view:', view);
+
+		if (!view) {
+			new Notice('No active note found');
+			return;
+		}
+
+		const editor = view.editor;
+		const selection = editor.getSelection();
+		console.log('VaultPilot: Selection length:', selection.length);
+
+		if (!selection || selection.trim().length === 0) {
+			new Notice('Please select some text first');
+			return;
+		}
+
+		const file = view.file;
+		if (!file) {
+			new Notice('No file found');
+			return;
+		}
+
+		console.log('VaultPilot: Opening EditModal');
+		// Open the edit modal
+		new EditModal(this.app, {
+			selection,
+			file,
+			onSubmit: (instruction) => {
+				// Placeholder: will be wired in Ticket #11
+				console.log('Instruction received:', instruction);
+				console.log('Selection:', selection.slice(0, 50) + '...');
+				console.log('File:', file.path);
+				new Notice('AI editing will be implemented in Ticket #11');
+			},
+		}).open();
 	}
 }
 
@@ -88,7 +214,7 @@ class SerendipitySettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Serendipity Engine Settings'});
+			containerEl.createEl('h2', {text: 'VaultPilot Settings'});
 
 		new Setting(containerEl)
 			.setName('Ollama Base URL')
