@@ -1,7 +1,7 @@
 # Ticket 10: Suggestion Callout Rendering & Apply Logic
 
 **Phase:** 4 - Inline Edit (⌘-⌥-K) with Ollama
-**Status:** To Do
+**Status:** Done
 **Dependencies:** None (standalone UI component)
 
 ## Description

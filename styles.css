@@ -194,3 +194,51 @@
 	cursor: not-allowed;
 }
 
+/* VaultPilot — Suggestion Callout styles */
+
+.vp-suggestion-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.vp-apply-btn,
+.vp-discard-btn {
+	padding: 6px 14px;
+	border-radius: 6px;
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+	transition: all 0.1s ease;
+}
+
+.vp-apply-btn {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border: 1px solid var(--interactive-accent);
+}
+
+.vp-apply-btn:hover {
+	background: var(--interactive-accent-hover);
+}
+
+.vp-discard-btn {
+	background: var(--background-modifier-form-field);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.vp-discard-btn:hover {
+	background: var(--background-modifier-border-hover);
+}
+
+/* Style the AI suggestion callout */
+.callout[data-callout="ai-suggestion"] {
+	border-color: var(--color-purple);
+}
+
+.callout[data-callout="ai-suggestion"] .callout-title {
+	background-color: rgba(147, 51, 234, 0.1);
+}
+

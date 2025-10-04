@@ -3,6 +3,7 @@ import { DiscoverView, VIEW_TYPE_DISCOVER } from './ui/DiscoverView';
 import { IndexingService, AnySerializedIndex } from './services/IndexingService';
 import { RetrievalService } from './services/RetrievalService';
 import { EditModal } from './ui/EditModal';
+import { SuggestionCallout } from './ui/SuggestionCallout';
 
 interface SerendipityPluginSettings {
 	ollamaUrl: string;
@@ -74,6 +75,15 @@ export default class SerendipityPlugin extends Plugin {
 			},
 		});
 		console.log('VaultPilot: ai-edit-selection command registered');
+
+		// Add test command for SuggestionCallout (dev only)
+		this.addCommand({
+			id: 'test-suggestion-callout',
+			name: '[DEV] Test Suggestion Callout',
+			callback: () => {
+				this.testSuggestionCallout();
+			},
+		});
 
 		// Wire vault + metadata events for incremental updates
 		this.registerEvent(this.app.vault.on('create', async (file: any) => {
@@ -198,6 +208,42 @@ export default class SerendipityPlugin extends Plugin {
 				new Notice('AI editing will be implemented in Ticket #11');
 			},
 		}).open();
+	}
+
+	testSuggestionCallout() {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view) {
+			new Notice('No active note found');
+			return;
+		}
+
+		const editor = view.editor;
+		const selection = editor.getSelection();
+
+		if (!selection || selection.trim().length === 0) {
+			new Notice('Please select some text first');
+			return;
+		}
+
+		// Create a test suggestion (simple example: make text uppercase)
+		const original = selection;
+		const suggestion = selection.toUpperCase();
+
+		// Get selection positions
+		const selectionStart = editor.getCursor('from');
+		const selectionEnd = editor.getCursor('to');
+
+		// Insert suggestion callout
+		const callout = new SuggestionCallout(this.app);
+		callout.insert(editor, {
+			original,
+			suggestion,
+			sources: ['Test Note A', 'Test Note B'],
+			selectionStart,
+			selectionEnd,
+		});
+
+		new Notice('Test callout inserted! Check below your selection.');
 	}
 }
 

@@ -15,6 +15,7 @@
   "author": "dev",
   "license": "MIT",
   "devDependencies": {
+    "@types/diff": "^7.0.2",
     "@types/node": "^18.19.39",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",
@@ -23,5 +24,8 @@
     "obsidian": "latest",
     "tslib": "2.5.0",
     "typescript": "4.9.5"
+  },
+  "dependencies": {
+    "diff": "^8.0.2"
   }
 }
