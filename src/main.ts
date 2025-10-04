@@ -6,6 +6,8 @@ import { EditModal } from './ui/EditModal';
 import { SuggestionCallout } from './ui/SuggestionCallout';
 import { OllamaAdapter } from './llm/OllamaAdapter';
 import { ContextAssembler } from './services/ContextAssembler';
+import { SessionManager } from './services/SessionManager';
+import { ChatSessionsData } from './types/chat';
 
 interface SerendipityPluginSettings {
 	ollamaUrl: string;
@@ -20,6 +22,7 @@ export default class SerendipityPlugin extends Plugin {
 	private dataBlob: any | undefined;
 	indexingService: IndexingService;
 	retrievalService: RetrievalService;
+	sessionManager: SessionManager;
 
 	async onload() {
 		await this.loadSettings();
@@ -34,10 +37,20 @@ export default class SerendipityPlugin extends Plugin {
 			this.indexingService.load(persistedIndex);
 		}
 
+		// Init session manager with persisted sessions
+		const persistedSessions = this.dataBlob?.chatSessions as ChatSessionsData | undefined;
+		this.sessionManager = new SessionManager(persistedSessions);
+
 		// Register the Discover View
 		this.registerView(
 			VIEW_TYPE_DISCOVER,
-			(leaf) => new DiscoverView(leaf, this.retrievalService)
+			(leaf) => new DiscoverView(
+				leaf,
+				this.retrievalService,
+				this.settings.ollamaUrl,
+				this.sessionManager,
+				() => this.saveSessions()
+			)
 		);
 
 		// Add a ribbon icon for quick access (chat-style icon)
@@ -146,6 +159,12 @@ export default class SerendipityPlugin extends Plugin {
 	private async saveIndex() {
 		this.dataBlob = this.dataBlob || {};
 		(this.dataBlob as any).index = this.indexingService.export();
+		await this.saveData(this.dataBlob);
+	}
+
+	async saveSessions() {
+		this.dataBlob = this.dataBlob || {};
+		(this.dataBlob as any).chatSessions = this.sessionManager.export();
 		await this.saveData(this.dataBlob);
 	}
 

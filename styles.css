@@ -5,6 +5,14 @@
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+	height: 100%;
+	overflow: hidden;
+}
+
+.vp-discover-content {
+	flex: 1;
+	overflow-y: auto;
+	margin-bottom: 8px;
 }
 
 .vp-header {
@@ -12,6 +20,18 @@
 	flex-direction: column;
 	gap: 6px;
 	margin-bottom: 4px;
+}
+
+.vp-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.vp-title-row h4 {
+	margin: 0;
+	flex: 1;
 }
 
 .vp-status {
@@ -240,5 +260,176 @@
 
 .callout[data-callout="ai-suggestion"] .callout-title {
 	background-color: rgba(147, 51, 234, 0.1);
+}
+
+/* VaultPilot — Chat UI styles */
+
+.vp-chat-container {
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: 400px;
+	min-height: 200px;
+}
+
+.vp-chat-header h5 {
+	margin: 0;
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.vp-chat-messages {
+	flex: 1;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 4px;
+	background: var(--background-secondary);
+	border-radius: 6px;
+	min-height: 100px;
+	max-height: 250px;
+}
+
+.vp-chat-message {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.vp-chat-message-role {
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	color: var(--text-muted);
+}
+
+.vp-chat-message--user .vp-chat-message-role {
+	color: var(--interactive-accent);
+}
+
+.vp-chat-message--assistant .vp-chat-message-role {
+	color: var(--color-purple);
+}
+
+.vp-chat-message-content {
+	padding: 6px 8px;
+	background: var(--background-primary);
+	border-radius: 6px;
+	font-size: var(--font-ui-small);
+	line-height: 1.4;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+
+.vp-chat-input-container {
+	display: flex;
+	gap: 6px;
+	align-items: flex-end;
+}
+
+.vp-chat-input {
+	flex: 1;
+	padding: 6px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-small);
+	resize: vertical;
+	min-height: 36px;
+	max-height: 100px;
+}
+
+.vp-chat-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+/* VaultPilot — Session Controls styles */
+
+.vp-session-controls {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+}
+
+.vp-icon-btn {
+	padding: 4px;
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.1s ease;
+}
+
+.vp-icon-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.vp-icon-btn svg {
+	width: 16px;
+	height: 16px;
+}
+
+.vp-session-dropdown {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	min-width: 250px;
+	max-width: 350px;
+	max-height: 400px;
+	overflow-y: auto;
+	z-index: 1000;
+	padding: 4px;
+}
+
+.vp-session-item {
+	padding: 8px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.1s ease;
+	border: 1px solid transparent;
+}
+
+.vp-session-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.vp-session-item--active {
+	background: var(--background-modifier-active-hover);
+	border-color: var(--interactive-accent);
+}
+
+.vp-session-title {
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	color: var(--text-normal);
+	margin-bottom: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.vp-session-time {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.vp-session-empty {
+	padding: 12px;
+	text-align: center;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
 }
 
