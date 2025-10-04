@@ -27,8 +27,7 @@ export class SuggestionCallout {
 			? ` — Sources: ${sources.map(s => `[[${s}]]`).join(', ')}`
 			: '';
 
-		const callout = `
-> [!ai-suggestion] AI Suggestion${sourcesText}
+		const callout = `> [!ai-suggestion] AI Suggestion${sourcesText}
 >
 > **Original:**
 > \`\`\`
