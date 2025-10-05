@@ -476,6 +476,8 @@ class SerendipitySettingTab extends PluginSettingTab {
 		let editModelDropdown: any = null;
 		let chatHelpEl: HTMLElement | null = null;
 		let editHelpEl: HTMLElement | null = null;
+		let chatReloadBtn: any = null;
+		let editReloadBtn: any = null;
 
 		const showModelsWarning = (el: HTMLElement) => {
 			el.empty();
@@ -500,6 +502,7 @@ class SerendipitySettingTab extends PluginSettingTab {
 				});
 			})
 			.addExtraButton((btn: any) => {
+				chatReloadBtn = btn;
 				btn.setIcon?.('refresh-ccw');
 				btn.setTooltip?.('Reload models');
 				btn.onClick?.(async () => {
@@ -535,6 +538,7 @@ class SerendipitySettingTab extends PluginSettingTab {
 				});
 			})
 			.addExtraButton((btn: any) => {
+				editReloadBtn = btn;
 				btn.setIcon?.('refresh-ccw');
 				btn.setTooltip?.('Reload models');
 				btn.onClick?.(async () => {
@@ -544,8 +548,16 @@ class SerendipitySettingTab extends PluginSettingTab {
 		editHelpEl = containerEl.createEl('div');
 
 		// Fetch models from Ollama and populate dropdowns
+		const setReloadButtonsLoading = (loading: boolean) => {
+			if (chatReloadBtn && chatReloadBtn.setDisabled) chatReloadBtn.setDisabled(loading);
+			if (editReloadBtn && editReloadBtn.setDisabled) editReloadBtn.setDisabled(loading);
+			chatReloadBtn?.setTooltip?.(loading ? 'Loading models…' : 'Reload models');
+			editReloadBtn?.setTooltip?.(loading ? 'Loading models…' : 'Reload models');
+		};
+
 		const loadModelsAndPopulate = async () => {
 			// Set loading state on dropdowns
+			setReloadButtonsLoading(true);
 			if (chatModelDropdown && chatModelDropdown.selectEl) {
 				chatModelDropdown.selectEl.empty();
 				chatModelDropdown.addOption('', 'Loading models…');
@@ -608,6 +620,7 @@ class SerendipitySettingTab extends PluginSettingTab {
 					if (editHelpEl) showModelsWarning(editHelpEl);
 				}
 			}
+			setReloadButtonsLoading(false);
 		};
 
 		// Load once on open
