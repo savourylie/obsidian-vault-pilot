@@ -490,6 +490,13 @@ class SerendipitySettingTab extends PluginSettingTab {
 					this.plugin.settings.defaultChatModel = value;
 					await this.plugin.saveSettings();
 				});
+			})
+			.addExtraButton((btn: any) => {
+				btn.setIcon?.('refresh-ccw');
+				btn.setTooltip?.('Reload models');
+				btn.onClick?.(async () => {
+					try { await loadModelsAndPopulate(); } catch {}
+				});
 			});
 		chatHelpEl = containerEl.createEl('div');
 
@@ -518,11 +525,31 @@ class SerendipitySettingTab extends PluginSettingTab {
 					this.plugin.settings.defaultEditModel = value;
 					await this.plugin.saveSettings();
 				});
+			})
+			.addExtraButton((btn: any) => {
+				btn.setIcon?.('refresh-ccw');
+				btn.setTooltip?.('Reload models');
+				btn.onClick?.(async () => {
+					try { await loadModelsAndPopulate(); } catch {}
+				});
 			});
 		editHelpEl = containerEl.createEl('div');
 
 		// Fetch models from Ollama and populate dropdowns
 		const loadModelsAndPopulate = async () => {
+			// Set loading state on dropdowns
+			if (chatModelDropdown && chatModelDropdown.selectEl) {
+				chatModelDropdown.selectEl.empty();
+				chatModelDropdown.addOption('', 'Loading models…');
+				chatModelDropdown.setValue('');
+				chatModelDropdown.selectEl.disabled = true;
+			}
+			if (editModelDropdown && editModelDropdown.selectEl) {
+				editModelDropdown.selectEl.empty();
+				editModelDropdown.addOption('', 'Loading models…');
+				editModelDropdown.setValue('');
+				editModelDropdown.selectEl.disabled = true;
+			}
 			const baseUrl = (this.plugin.settings.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
 			let models: string[] = [];
 			let ok = false;
