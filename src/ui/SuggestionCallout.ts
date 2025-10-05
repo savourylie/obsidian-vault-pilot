@@ -20,23 +20,25 @@ export class SuggestionCallout {
 	 * The callout is inserted after the current selection.
 	 */
 	insert(editor: Editor, options: SuggestionOptions): void {
-		const { original, suggestion, sources, selectionStart, selectionEnd } = options;
+		const { original, suggestion, sources, selectionEnd } = options;
 
 		// Build callout markdown
 		const sourcesText = sources && sources.length > 0
 			? ` — Sources: ${sources.map(s => `[[${s}]]`).join(', ')}`
 			: '';
 
+		const quoteLines = (text: string) => text.split('\n').map(l => `> ${l}`).join('\n');
+
 		const callout = `> [!ai-suggestion] AI Suggestion${sourcesText}
 >
 > **Original:**
 > \`\`\`
-> ${original}
+${quoteLines(original)}
 > \`\`\`
 >
 > **Suggestion:**
 > \`\`\`
-> ${suggestion}
+${quoteLines(suggestion)}
 > \`\`\`
 `;
 
@@ -45,7 +47,6 @@ export class SuggestionCallout {
 		editor.replaceRange(callout, insertPos);
 
 		// Schedule button attachment after Obsidian renders the callout
-		// Try multiple times with increasing delays to ensure rendering is complete
 		setTimeout(() => this.attachButtons(editor, options), 200);
 		setTimeout(() => this.attachButtons(editor, options), 500);
 		setTimeout(() => this.attachButtons(editor, options), 1000);
@@ -56,30 +57,11 @@ export class SuggestionCallout {
 	 * Uses the last (most recent) ai-suggestion callout.
 	 */
 	private attachButtons(editor: Editor, options: SuggestionOptions): void {
-		const { original, suggestion, selectionStart, selectionEnd } = options;
-
-		// Find all callouts with ai-suggestion type
 		const callouts = document.querySelectorAll('.callout[data-callout="ai-suggestion"]');
-
-		console.log('VaultPilot: Found', callouts.length, 'ai-suggestion callouts');
-
-		if (callouts.length === 0) {
-			console.warn('VaultPilot: No ai-suggestion callouts found in DOM');
-			return;
-		}
-
-		// Get the last (most recent) callout
+		if (callouts.length === 0) return;
 		const targetCallout = callouts[callouts.length - 1];
+		if (targetCallout.querySelector('.vp-suggestion-actions')) return;
 
-		// Check if buttons already exist
-		if (targetCallout.querySelector('.vp-suggestion-actions')) {
-			console.log('VaultPilot: Buttons already attached to this callout');
-			return;
-		}
-
-		console.log('VaultPilot: Attaching buttons to most recent callout');
-
-		// Create action buttons
 		const actionsDiv = document.createElement('div');
 		actionsDiv.className = 'vp-suggestion-actions';
 
@@ -95,11 +77,7 @@ export class SuggestionCallout {
 
 		actionsDiv.appendChild(applyBtn);
 		actionsDiv.appendChild(discardBtn);
-
-		// Append buttons to callout
 		targetCallout.appendChild(actionsDiv);
-
-		console.log('VaultPilot: Buttons attached successfully');
 	}
 
 	/**
@@ -109,38 +87,35 @@ export class SuggestionCallout {
 	private handleApply(editor: Editor, options: SuggestionOptions): void {
 		const { original, suggestion, selectionStart, selectionEnd } = options;
 
-		// Verify the original text hasn't changed
 		const currentText = editor.getRange(selectionStart, selectionEnd);
 		if (currentText !== original) {
 			new Notice('⚠️ Original text has changed. Cannot apply suggestion.');
 			return;
 		}
 
-		// Replace the selection FIRST (while positions are still valid)
+		// Replace the selection first
 		editor.replaceRange(suggestion, selectionStart, selectionEnd);
 
-		// Calculate the end position after replacement (handle multi-line text)
+		// Compute the new cursor position after replacement
 		const lines = suggestion.split('\n');
 		const newEndPos = {
 			line: selectionStart.line + lines.length - 1,
-			ch: lines.length > 1 ? lines[lines.length - 1].length : selectionStart.ch + suggestion.length
+			ch: lines.length > 1 ? lines[lines.length - 1].length : selectionStart.ch + suggestion.length,
 		};
 
-		// Then remove the callout
+		// Remove callout
 		this.removeCallout(editor);
 
-		// Defer cursor setting to prevent weird selections from race conditions
 		setTimeout(() => {
 			editor.focus();
 			editor.setCursor(newEndPos);
-		}, 50); // A small delay is often enough
+		}, 50);
 
 		new Notice('✓ Applied AI suggestion');
 	}
 
 	/**
 	 * Handle Discard button click.
-	 * Removes the callout without applying changes.
 	 */
 	private handleDiscard(editor: Editor): void {
 		this.removeCallout(editor);
@@ -148,52 +123,40 @@ export class SuggestionCallout {
 	}
 
 	/**
-	 * Remove the callout from the editor.
-	 * Finds and removes the last ai-suggestion callout block.
+	 * Remove the last ai-suggestion callout from the editor.
 	 */
 	private removeCallout(editor: Editor): void {
 		const content = editor.getValue();
 
-		// Find the last occurrence of the ai-suggestion callout header
+		// Detect last callout region: start at header, then consume contiguous '>' lines
 		const headerPattern = '> [!ai-suggestion]';
-		const lastIndex = content.lastIndexOf(headerPattern);
+		let hdrIndex = content.lastIndexOf(headerPattern);
+		if (hdrIndex === -1) return;
+		// Move to start of the header line
+		let startIndex = hdrIndex;
+		while (startIndex > 0 && content[startIndex - 1] !== '\n') startIndex--;
 
-		if (lastIndex === -1) {
-			console.warn('VaultPilot: Could not find ai-suggestion callout to remove');
-			return;
+		// Walk forward until the first non-blockquote line
+		let cursor = startIndex;
+		while (cursor < content.length) {
+			const nl = content.indexOf('\n', cursor);
+			if (nl === -1) { cursor = content.length; break; }
+			const nextStart = nl + 1;
+			const nextChar = content.charAt(nextStart);
+			if (nextStart >= content.length || nextChar !== '>') { cursor = nextStart; break; }
+			cursor = nextStart;
 		}
-
-		// Find the start of the line containing the header
-		let startIndex = lastIndex;
-		while (startIndex > 0 && content[startIndex - 1] !== '\n') {
-			startIndex--;
-		}
-
-		// Find the end of the callout block by finding the text block and its length
-		const contentAfterStart = content.substring(startIndex);
-		const lines = contentAfterStart.split('\n');
-		const calloutLines = [];
-		for (const line of lines) {
-			if (calloutLines.length > 0 && !line.startsWith('>')) {
-				break;
-			}
-			calloutLines.push(line);
-		}
-
-		// Rejoin to get the exact block text, then calculate end offset
-		const calloutBlockText = calloutLines.join('\n');
-		let endIndex = startIndex + calloutBlockText.length;
-
-		// If the block is followed by a newline, we'll want to remove that too for a clean removal.
-		if (endIndex < content.length && content.charAt(endIndex) === '\n') {
-			endIndex++;
-		}
+		const endIndex = cursor;
 
 		const startPos = editor.offsetToPos(startIndex);
 		const endPos = editor.offsetToPos(endIndex);
-
-		// Remove the callout
 		editor.replaceRange('', startPos, endPos);
-	}
 
+		// Defensive cleanup: remove any isolated leftover blockquote code fence lines
+		const content2 = editor.getValue();
+		const strayPattern = /^>\s*`{3}.*\n?/m;
+		if (strayPattern.test(content2)) {
+			editor.setValue(content2.replace(strayPattern, ''));
+		}
+	}
 }
