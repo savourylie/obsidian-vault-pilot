@@ -8,6 +8,7 @@
 	--vp-radius-lg: 14px;
 	--vp-radius-md: 10px;
 	--vp-radius-sm: 8px;
+	--vp-radius-xl: 20px;
 	--vp-text-muted: var(--text-muted);
 	--vp-brand: var(--interactive-accent);
 	padding: 16px;
@@ -546,37 +547,56 @@
 
 .vp-chat-input-container {
 	display: flex;
-	gap: 12px;
-	align-items: flex-end;
+	gap: 8px;
+	align-items: center;
+	background: var(--background-primary);
+	border: 1px solid var(--vp-section-border);
+	border-radius: var(--vp-radius-xl);
+	padding: 6px 8px;
+	box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 10px 22px rgba(0,0,0,0.06);
 }
 
 .vp-chat-input {
 	flex: 1;
-	padding: 10px 12px;
-	border: 1px solid var(--vp-section-border);
-	border-radius: var(--vp-radius-md);
-	background: var(--background-primary);
+	padding: 8px 10px;
+	border: none;
+	background: transparent;
 	color: var(--text-normal);
 	font-family: var(--font-interface);
-	font-size: var(--font-ui-small);
+	font-size: calc(var(--font-ui-small) + 2px);
+	line-height: 1.4;
 	resize: vertical;
 	min-height: 42px;
 	max-height: 120px;
 }
 
-.vp-chat-input:focus {
-	outline: none;
+.vp-chat-input::placeholder { color: var(--text-muted); opacity: 0.8; }
+.vp-chat-input:focus { outline: none; }
+.vp-chat-input-container:focus-within {
 	border-color: var(--interactive-accent);
-	box-shadow: 0 0 0 2px var(--interactive-accent);
+	box-shadow: 0 0 0 2px var(--interactive-accent), 0 10px 22px rgba(0,0,0,0.06);
 }
 
 .vp-chat-send {
-	min-width: 88px;
-	align-self: stretch;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--text-muted);
+	color: var(--text-on-accent);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	cursor: pointer;
+	transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
 }
+.vp-chat-send:hover {
+	background: var(--text-normal);
+	color: var(--text-on-accent);
+	box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+}
+.vp-chat-send:active { transform: translateY(1px); }
+.vp-chat-send svg { width: 28px; height: 28px; stroke-width: 2.8; transform: scale(1.08); transform-origin: center; pointer-events: none; }
 
 /* VaultPilot — Animation Performance */
 

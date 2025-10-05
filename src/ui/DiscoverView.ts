@@ -259,9 +259,10 @@ export class DiscoverView extends ItemView {
 		});
 
 		const sendBtn = inputContainer.createEl('button', {
-			cls: 'vp-btn vp-btn--primary vp-chat-send',
-			text: 'Send'
+			cls: 'vp-chat-send',
+			attr: { 'aria-label': 'Send' }
 		});
+		setIcon(sendBtn, 'arrow-up');
 		sendBtn.addEventListener('click', () => this.sendMessage());
 
 		// Send on Enter (but Shift+Enter for newline)
