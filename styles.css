@@ -74,6 +74,15 @@
 	background: var(--background-primary);
 }
 
+.vp-result--clickable {
+	cursor: pointer;
+	transition: background 0.1s ease;
+}
+
+.vp-result--clickable:hover {
+	background: var(--background-modifier-hover);
+}
+
 .vp-title {
 	font-weight: 600;
 	margin-bottom: 4px;
@@ -270,8 +279,8 @@
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	max-height: 400px;
-	min-height: 200px;
+	max-height: 600px;
+	min-height: 250px;
 }
 
 .vp-chat-header h5 {
@@ -290,14 +299,25 @@
 	padding: 4px;
 	background: var(--background-secondary);
 	border-radius: 6px;
-	min-height: 100px;
-	max-height: 250px;
+	min-height: 150px;
+	max-height: 450px;
 }
 
 .vp-chat-message {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+	max-width: 85%;
+	align-items: flex-start;
+}
+
+.vp-chat-message--user {
+	align-self: flex-start;
+}
+
+.vp-chat-message--assistant {
+	align-self: flex-end;
+	align-items: flex-end;
 }
 
 .vp-chat-message-role {
@@ -312,6 +332,8 @@
 
 .vp-chat-message--assistant .vp-chat-message-role {
 	color: var(--color-purple);
+	text-align: right;
+	align-self: flex-end;
 }
 
 .vp-chat-message-content {
@@ -432,4 +454,3 @@
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 }
-

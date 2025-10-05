@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, MarkdownView, TFile, App, setIcon } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownView, TFile, App, setIcon, MarkdownRenderer } from 'obsidian';
 import { RetrievalService } from '../services/RetrievalService';
 import { ChatService } from '../services/ChatService';
 import { OllamaAdapter } from '../llm/OllamaAdapter';
@@ -9,7 +9,6 @@ export const VIEW_TYPE_DISCOVER = 'serendipity-discover-view';
 export class DiscoverView extends ItemView {
 	private retrieval: RetrievalService | null = null;
 	private contentEl: HTMLElement | null = null;
-	private statusEl: HTMLElement | null = null;
 	private resultsEl: HTMLElement | null = null;
 	private debounceTimer: number | null = null;
 	private searchToken = 0;
@@ -79,12 +78,6 @@ export class DiscoverView extends ItemView {
 			setIcon(newSessionBtn, 'edit');
 			newSessionBtn.addEventListener('click', () => this.createNewSession());
 		}
-
-		this.statusEl = header.createEl('div', { cls: 'vp-status', text: 'Synthesis will appear here...' });
-
-		const actions = container.createEl('div', { cls: 'vp-actions' });
-		const refreshBtn = actions.createEl('button', { cls: 'vp-btn', text: 'Refresh' });
-		refreshBtn.addEventListener('click', () => this.queueSearch());
 
 		this.contentEl = container.createEl('div', { cls: 'vp-discover-content' });
 		this.resultsEl = this.contentEl.createEl('div', { cls: 'vp-results' });
@@ -173,16 +166,10 @@ export class DiscoverView extends ItemView {
 			return;
 		}
 		for (const r of results) {
-			const row = this.resultsEl.createEl('div', { cls: 'vp-result' });
+			const row = this.resultsEl.createEl('div', { cls: 'vp-result vp-result--clickable' });
+			row.addEventListener('click', () => this.openFile(r.path));
 			row.createEl('div', { cls: 'vp-title', text: r.title });
 			row.createEl('div', { cls: 'vp-snippet', text: r.snippet });
-			const btns = row.createEl('div', { cls: 'vp-actions' });
-			const openBtn = btns.createEl('button', { cls: 'vp-btn vp-btn--primary', text: 'Open' });
-			openBtn.addEventListener('click', () => this.openFile(r.path));
-			const linkBtn = btns.createEl('button', { cls: 'vp-btn', text: 'Insert Link' });
-			linkBtn.addEventListener('click', () => this.insertLink(r.path));
-			const quoteBtn = btns.createEl('button', { cls: 'vp-btn', text: 'Quote' });
-			quoteBtn.addEventListener('click', () => console.log('Quote placeholder for', r.path));
 		}
 	}
 
@@ -251,14 +238,14 @@ export class DiscoverView extends ItemView {
 		const assistantContent = assistantMsg.querySelector('.vp-chat-message-content') as HTMLElement;
 
 		try {
-			// Stream response
+			let accumulatedContent = '';
+
 			await this.chatService.sendMessage(message, context, (chunk: string) => {
-				if (assistantContent) {
-					assistantContent.textContent += chunk;
-					// Auto-scroll to bottom
-					if (this.chatMessagesEl) {
-						this.chatMessagesEl.scrollTop = this.chatMessagesEl.scrollHeight;
-					}
+				if (!assistantContent) return;
+				accumulatedContent += chunk;
+				this.renderMarkdownContent(assistantContent, accumulatedContent);
+				if (this.chatMessagesEl) {
+					this.chatMessagesEl.scrollTop = this.chatMessagesEl.scrollHeight;
 				}
 			});
 
@@ -269,6 +256,7 @@ export class DiscoverView extends ItemView {
 		} catch (err) {
 			console.error('Chat error:', err);
 			if (assistantContent) {
+				assistantContent.empty();
 				assistantContent.textContent = 'Error: ' + (err instanceof Error ? err.message : 'Unknown error');
 			}
 		}
@@ -282,12 +270,18 @@ export class DiscoverView extends ItemView {
 		roleLabel.textContent = role === 'user' ? 'You' : 'Assistant';
 
 		const contentEl = msgEl.createEl('div', { cls: 'vp-chat-message-content' });
-		contentEl.textContent = content;
+		this.renderMarkdownContent(contentEl, content);
 
 		// Auto-scroll to bottom
 		this.chatMessagesEl.scrollTop = this.chatMessagesEl.scrollHeight;
 
 		return msgEl;
+	}
+
+	private renderMarkdownContent(target: HTMLElement, markdown: string) {
+		target.empty();
+		if (!markdown) return;
+		MarkdownRenderer.renderMarkdown(markdown, target, '', this);
 	}
 
 	private toggleSessionDropdown() {
