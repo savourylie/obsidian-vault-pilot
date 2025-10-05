@@ -598,6 +598,28 @@
 .vp-chat-send:active { transform: translateY(1px); }
 .vp-chat-send svg { width: 28px; height: 28px; stroke-width: 2.8; transform: scale(1.08); transform-origin: center; pointer-events: none; }
 
+/* Model selector */
+.vp-chat-modelbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 2px 4px;
+}
+.vp-model-label {
+	font-size: var(--font-ui-smaller);
+	color: var(--vp-text-muted);
+}
+.vp-model-select {
+	appearance: none;
+	padding: 6px 10px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--vp-section-border);
+	border-radius: 8px;
+	font-size: var(--font-ui-small);
+}
+.vp-model-select:focus { outline: none; border-color: var(--interactive-accent); box-shadow: 0 0 0 2px var(--interactive-accent); }
+
 /* VaultPilot — Animation Performance */
 
 .vp-chat-message,

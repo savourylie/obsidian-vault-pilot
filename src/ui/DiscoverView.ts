@@ -17,10 +17,12 @@ export class DiscoverView extends ItemView {
 	private chatContainer: HTMLElement | null = null;
 	private chatMessagesEl: HTMLElement | null = null;
 	private chatInputEl: HTMLTextAreaElement | null = null;
+	private modelSelectEl: HTMLSelectElement | null = null;
 	private sessionManager: SessionManager | null = null;
 	private sessionDropdown: HTMLElement | null = null;
 	private onSessionSave: (() => Promise<void>) | null = null;
 	private typingIndicator: HTMLElement | null = null;
+	private ollamaUrl: string = 'http://localhost:11434';
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -34,7 +36,8 @@ export class DiscoverView extends ItemView {
 		this.retrieval = retrieval ?? null;
 		this.sessionManager = sessionManager ?? null;
 		this.onSessionSave = onSessionSave ?? null;
-		const adapter = new OllamaAdapter(ollamaUrl || 'http://localhost:11434');
+		this.ollamaUrl = ollamaUrl || 'http://localhost:11434';
+		const adapter = new OllamaAdapter(this.ollamaUrl);
 		this.chatService = new ChatService(adapter, chatOptions);
 
 		// Wire session manager to chat service
@@ -272,6 +275,66 @@ export class DiscoverView extends ItemView {
 				this.sendMessage();
 			}
 		});
+
+		// Model selection dropdown below the chat box
+		this.createModelSelector(chatSurface);
+	}
+
+	private createModelSelector(container: HTMLElement) {
+		const bar = container.createEl('div', { cls: 'vp-chat-modelbar' });
+		const label = bar.createEl('label', { cls: 'vp-model-label', text: 'Model' });
+		this.modelSelectEl = bar.createEl('select', { cls: 'vp-model-select' }) as HTMLSelectElement;
+
+		// Placeholder option
+		this.modelSelectEl.appendChild(new Option('Loading models…', '', false, false));
+		this.modelSelectEl.disabled = true;
+
+		this.modelSelectEl.addEventListener('change', () => {
+			const selected = this.modelSelectEl?.value || '';
+			if (selected) {
+				this.chatService.setModel(selected);
+				try { localStorage.setItem('vp-selected-model', selected); } catch {}
+			}
+		});
+
+		// Load models asynchronously
+		this.loadAvailableModels();
+	}
+
+	private async loadAvailableModels() {
+		const fallback = ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b'];
+		let models: string[] = [];
+		try {
+			const resp = await fetch(`${this.ollamaUrl.replace(/\/$/, '')}/api/tags`);
+			if (resp.ok) {
+				const data = await resp.json();
+				if (Array.isArray(data?.models)) {
+					models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+				}
+			}
+		} catch (err) {
+			console.warn('Ollama model list fetch failed; using fallback list', err);
+		}
+		if (models.length === 0) models = fallback;
+
+		if (!this.modelSelectEl) return;
+		this.modelSelectEl.empty();
+		for (const m of models) {
+			this.modelSelectEl.appendChild(new Option(m, m, false, false));
+		}
+
+		// Preselect from localStorage or first option
+		let selected = '';
+		try { selected = localStorage.getItem('vp-selected-model') || ''; } catch {}
+		if (selected && models.includes(selected)) {
+			this.modelSelectEl.value = selected;
+		} else {
+			this.modelSelectEl.selectedIndex = 0;
+			selected = this.modelSelectEl.value;
+		}
+
+		this.modelSelectEl.disabled = false;
+		if (selected) this.chatService.setModel(selected);
 	}
 
 	private async sendMessage() {

@@ -19,6 +19,7 @@ export class ChatService {
 	private sessionManager: SessionManager | null = null;
 	private currentSessionId: string | null = null;
 	private options: Required<ChatServiceOptions>;
+	private currentModel: string | null = null;
 
 	constructor(adapter: LLMAdapter, options?: ChatServiceOptions) {
 		this.adapter = adapter;
@@ -29,6 +30,17 @@ export class ChatService {
 			recentMessagesToKeep: options?.recentMessagesToKeep ?? 6,
 			minRecentMessagesToKeep: options?.minRecentMessagesToKeep ?? 2,
 		};
+	}
+
+	/**
+	 * Set/get the active model used for all generations.
+	 */
+	setModel(model: string) {
+		this.currentModel = model || null;
+	}
+
+	getModel(): string | null {
+		return this.currentModel;
 	}
 
 	/**
@@ -63,7 +75,7 @@ export class ChatService {
 		await this.adapter.stream(prompt, (chunk) => {
 			responseChunks.push(chunk);
 			onChunk(chunk);
-		});
+		}, { model: this.currentModel || undefined });
 
 		// Add assistant response to history
 		const fullResponse = responseChunks.join('');
@@ -404,7 +416,7 @@ export class ChatService {
 		let summary: string;
 		console.log('🤖 Calling LLM to generate summary...');
 		try {
-			summary = await this.adapter.generate(summarizationPrompt, { temperature: 0.3 });
+			summary = await this.adapter.generate(summarizationPrompt, { temperature: 0.3, model: this.currentModel || undefined });
 			summary = summary.trim();
 			console.log('✅ Summary generated successfully');
 			console.log('📄 Summary preview:', summary.slice(0, 150) + (summary.length > 150 ? '...' : ''));
@@ -471,7 +483,7 @@ export class ChatService {
 				let updatedSummary = existingSummary;
 				try {
 					const summarizationPrompt = `Update this summary with additional context. Keep it concise.\n\nExisting summary: ${existingSummary}\n\nAdditional messages:\n${toSummarize.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')}`;
-					updatedSummary = await this.adapter.generate(summarizationPrompt, { temperature: 0.3 });
+					updatedSummary = await this.adapter.generate(summarizationPrompt, { temperature: 0.3, model: this.currentModel || undefined });
 					updatedSummary = updatedSummary.trim();
 					console.log(`✅ Updated summary with ${toSummarize.length} dropped messages`);
 				} catch (err) {
@@ -510,7 +522,7 @@ export class ChatService {
 		if (toSummarize.length > 0) {
 			try {
 				const summarizationPrompt = `Create an extremely concise summary (max 2-3 sentences) of this conversation.\n\nExisting summary: ${existingSummary}\n\nAdditional messages:\n${toSummarize.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content.slice(0, 200)}`).join('\n')}`;
-				finalSummary = await this.adapter.generate(summarizationPrompt, { temperature: 0.3 });
+				finalSummary = await this.adapter.generate(summarizationPrompt, { temperature: 0.3, model: this.currentModel || undefined });
 				finalSummary = finalSummary.trim();
 				console.log(`✅ Created ultra-concise summary, keeping ${keptMessages.length} most recent messages`);
 			} catch (err) {
