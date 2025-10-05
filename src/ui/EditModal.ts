@@ -70,6 +70,8 @@ export class EditModal extends Modal {
 					this.instructionInput.value = instruction;
 					this.updateGenerateButton();
 					this.instructionInput.focus();
+					// Execute immediately when a quick action is clicked
+					this.handleSubmit();
 				}
 			});
 		});
