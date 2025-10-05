@@ -9,12 +9,22 @@ import { ContextAssembler } from './services/ContextAssembler';
 import { SessionManager } from './services/SessionManager';
 import { ChatSessionsData } from './types/chat';
 
+interface QuickActionsConfig {
+	rewrite: string;
+	tighten: string;
+	expand: string;
+	grammar: string;
+	translate: string;
+}
+
 interface SerendipityPluginSettings {
 	ollamaUrl: string;
 	maxPromptTokens: number;
 	reservedResponseTokens: number;
 	recentMessagesToKeep: number;
 	minRecentMessagesToKeep: number;
+	quickActions: QuickActionsConfig;
+	systemPrompt: string;
 }
 
 const DEFAULT_SETTINGS: SerendipityPluginSettings = {
@@ -23,6 +33,14 @@ const DEFAULT_SETTINGS: SerendipityPluginSettings = {
 	reservedResponseTokens: 512,
 	recentMessagesToKeep: 6,
 	minRecentMessagesToKeep: 2,
+	quickActions: {
+		rewrite: 'Rewrite this text to be clearer and more engaging.',
+		tighten: 'Make this text more concise while preserving key information.',
+		expand: 'Expand this text with more detail and examples.',
+		grammar: 'Fix grammar, spelling, and punctuation errors.',
+		translate: 'Translate this text to Spanish.',
+	},
+	systemPrompt: 'You are an AI writing assistant for Obsidian. Your task is to help the user edit their note.',
 }
 
 export default class SerendipityPlugin extends Plugin {
@@ -237,6 +255,7 @@ export default class SerendipityPlugin extends Plugin {
 			selection,
 			file,
 			ollamaUrl: this.settings.ollamaUrl,
+			presets: this.settings.quickActions,
 			onSubmit: async (instruction, model) => {
 				await this.generateSuggestion(editor, file, selection, instruction, selectionStart, selectionEnd, model);
 			},
@@ -257,7 +276,9 @@ export default class SerendipityPlugin extends Plugin {
 
 		try {
 			// Assemble context with retrieval
-			const assembler = new ContextAssembler(this.app, this.retrievalService);
+			const assembler = new ContextAssembler(this.app, this.retrievalService, {
+				systemPrompt: this.settings.systemPrompt,
+			});
 			const prompt = assembler.assembleContext(selection, file, instruction);
 
 			console.log('VaultPilot: Prompt assembled, calling Ollama...');
@@ -428,6 +449,74 @@ class SerendipitySettingTab extends PluginSettingTab {
 						this.plugin.settings.minRecentMessagesToKeep = num;
 						await this.plugin.saveSettings();
 					}
+				}));
+
+		containerEl.createEl('h3', { text: 'Edit with AI' });
+
+		new Setting(containerEl)
+			.setName('Shared System Prompt')
+			.setDesc('Prepended to every Edit with AI request. Keep concise; you can override style in the instruction.')
+			.addText(text => text
+				.setPlaceholder('You are an AI writing assistant for Obsidian...')
+				.setValue(this.plugin.settings.systemPrompt || '')
+				.onChange(async (value) => {
+					this.plugin.settings.systemPrompt = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Rewrite Prompt')
+			.setDesc('Default instruction used when clicking Rewrite.')
+			.addText(text => text
+				.setPlaceholder('Rewrite this text to be clearer and more engaging.')
+				.setValue(this.plugin.settings.quickActions.rewrite)
+				.onChange(async (value) => {
+					this.plugin.settings.quickActions.rewrite = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Tighten Prompt')
+			.setDesc('Default instruction used when clicking Tighten.')
+			.addText(text => text
+				.setPlaceholder('Make this text more concise while preserving key information.')
+				.setValue(this.plugin.settings.quickActions.tighten)
+				.onChange(async (value) => {
+					this.plugin.settings.quickActions.tighten = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Expand Prompt')
+			.setDesc('Default instruction used when clicking Expand.')
+			.addText(text => text
+				.setPlaceholder('Expand this text with more detail and examples.')
+				.setValue(this.plugin.settings.quickActions.expand)
+				.onChange(async (value) => {
+					this.plugin.settings.quickActions.expand = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Grammar Prompt')
+			.setDesc('Default instruction used when clicking Grammar.')
+			.addText(text => text
+				.setPlaceholder('Fix grammar, spelling, and punctuation errors.')
+				.setValue(this.plugin.settings.quickActions.grammar)
+				.onChange(async (value) => {
+					this.plugin.settings.quickActions.grammar = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Translate Prompt')
+			.setDesc('Default instruction used when clicking Translate.')
+			.addText(text => text
+				.setPlaceholder('Translate this text to Spanish.')
+				.setValue(this.plugin.settings.quickActions.translate)
+				.onChange(async (value) => {
+					this.plugin.settings.quickActions.translate = value;
+					await this.plugin.saveSettings();
 				}));
 	}
 }

@@ -5,9 +5,11 @@ export interface EditModalOptions {
 	file: TFile;
 	ollamaUrl?: string;
 	onSubmit: (instruction: string, model: string) => Promise<void>;
+	// Optional custom presets supplied by settings
+	presets?: Record<string, string>;
 }
 
-const PRESETS = {
+const DEFAULT_PRESETS = {
 	rewrite: 'Rewrite this text to be clearer and more engaging.',
 	tighten: 'Make this text more concise while preserving key information.',
 	expand: 'Expand this text with more detail and examples.',
@@ -27,10 +29,14 @@ export class EditModal extends Modal {
 	private cancelBtn: HTMLButtonElement | null = null;
 	private isGenerating: boolean = false;
 	private modelSelect: HTMLSelectElement | null = null;
+	private presets: Record<string, string>;
 
 	constructor(app: App, options: EditModalOptions) {
 		super(app);
 		this.options = options;
+		this.presets = options.presets && Object.keys(options.presets).length > 0
+			? options.presets
+			: DEFAULT_PRESETS;
 	}
 
 	onOpen() {
@@ -54,7 +60,7 @@ export class EditModal extends Modal {
 
 		const btnContainer = presetsEl.createDiv({ cls: 'vp-preset-buttons' });
 
-		Object.entries(PRESETS).forEach(([key, instruction]) => {
+		Object.entries(this.presets).forEach(([key, instruction]) => {
 			const btn = btnContainer.createEl('button', {
 				cls: 'vp-preset-btn',
 				text: this.capitalizeFirst(key),

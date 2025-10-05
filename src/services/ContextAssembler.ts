@@ -5,12 +5,14 @@ export interface ContextConfig {
 	maxSnippets?: number;
 	maxPromptLength?: number;
 	maxSelectionLength?: number;
+	systemPrompt?: string;
 }
 
 const DEFAULT_CONFIG: Required<ContextConfig> = {
 	maxSnippets: 5,
 	maxPromptLength: 8000,
 	maxSelectionLength: 2000,
+	systemPrompt: 'You are an AI writing assistant for Obsidian. Your task is to help the user edit their note.'
 };
 
 /**
@@ -59,7 +61,8 @@ export class ContextAssembler {
 		}
 
 		// Assemble the full prompt
-		const prompt = `You are an AI writing assistant for Obsidian. Your task is to help the user edit their note.
+		const system = this.config.systemPrompt || DEFAULT_CONFIG.systemPrompt;
+		const prompt = `${system}
 
 Current note: [[${file.basename}]]
 Path: ${file.path}
