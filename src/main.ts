@@ -378,6 +378,9 @@ class SerendipitySettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
+		// Debounce handle for model reloads when base URL changes
+		let modelsReloadTimer: number | null = null;
+
 			containerEl.createEl('h2', {text: 'VaultPilot Settings'});
 
 		new Setting(containerEl)
@@ -389,11 +392,16 @@ class SerendipitySettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.ollamaUrl = value;
 					await this.plugin.saveSettings();
-					// Attempt to reload available models for dropdowns
-					try {
-						// @ts-ignore - defined within display scope
-						await loadModelsAndPopulate();
-					} catch {}
+					// Debounce reload of available models for dropdowns
+					if (modelsReloadTimer) {
+						window.clearTimeout(modelsReloadTimer);
+					}
+					modelsReloadTimer = window.setTimeout(async () => {
+						try {
+							// @ts-ignore - defined within display scope
+							await loadModelsAndPopulate();
+						} catch {}
+					}, 600);
 				}));
 
 		containerEl.createEl('h3', {text: 'Chat Token Window Settings'});
