@@ -7,6 +7,8 @@ export interface EditModalOptions {
 	onSubmit: (instruction: string, model: string) => Promise<void>;
 	// Optional custom presets supplied by settings
 	presets?: Record<string, string>;
+	// Optional default model to preselect when available
+	defaultModel?: string;
 }
 
 const DEFAULT_PRESETS = {
@@ -84,7 +86,7 @@ export class EditModal extends Modal {
 		this.modelSelect.disabled = true;
 		this.modelSelect.addEventListener('change', () => {
 			const m = this.modelSelect?.value || '';
-			try { localStorage.setItem('vp-selected-model', m); } catch {}
+			try { localStorage.setItem('vp-selected-edit-model', m); } catch {}
 			this.updateGenerateButton();
 		});
 		this.loadModels();
@@ -200,7 +202,17 @@ export class EditModal extends Modal {
 		for (const m of models) this.modelSelect.appendChild(new Option(m, m));
 
 		let selected = '';
-		try { selected = localStorage.getItem('vp-selected-model') || ''; } catch {}
+		// Prefer the edit-specific key; fall back to legacy shared key
+		try {
+			selected = localStorage.getItem('vp-selected-edit-model')
+				|| localStorage.getItem('vp-selected-model')
+				|| '';
+		} catch {}
+
+		// If no prior selection or not available, try defaultModel from options
+		if ((!selected || !models.includes(selected)) && this.options.defaultModel && models.includes(this.options.defaultModel)) {
+			selected = this.options.defaultModel;
+		}
 		if (selected && models.includes(selected)) {
 			this.modelSelect.value = selected;
 		} else {

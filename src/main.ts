@@ -25,6 +25,8 @@ interface SerendipityPluginSettings {
 	minRecentMessagesToKeep: number;
 	quickActions: QuickActionsConfig;
 	systemPrompt: string;
+	defaultChatModel: string;
+	defaultEditModel: string;
 }
 
 const DEFAULT_SETTINGS: SerendipityPluginSettings = {
@@ -41,6 +43,8 @@ const DEFAULT_SETTINGS: SerendipityPluginSettings = {
 		translate: 'Translate this text to Spanish.',
 	},
 	systemPrompt: 'You are an AI writing assistant for Obsidian. Your task is to help the user edit their note.',
+	defaultChatModel: 'gemma3n:e2b',
+	defaultEditModel: 'gemma3n:e2b',
 }
 
 export default class SerendipityPlugin extends Plugin {
@@ -81,7 +85,8 @@ export default class SerendipityPlugin extends Plugin {
 					reservedResponseTokens: this.settings.reservedResponseTokens,
 					recentMessagesToKeep: this.settings.recentMessagesToKeep,
 					minRecentMessagesToKeep: this.settings.minRecentMessagesToKeep,
-				}
+				},
+				this.settings.defaultChatModel
 			)
 		);
 
@@ -256,6 +261,7 @@ export default class SerendipityPlugin extends Plugin {
 			file,
 			ollamaUrl: this.settings.ollamaUrl,
 			presets: this.settings.quickActions,
+			defaultModel: this.settings.defaultEditModel,
 			onSubmit: async (instruction, model) => {
 				await this.generateSuggestion(editor, file, selection, instruction, selectionStart, selectionEnd, model);
 			},
@@ -451,6 +457,17 @@ class SerendipitySettingTab extends PluginSettingTab {
 					}
 				}));
 
+		new Setting(containerEl)
+			.setName('Default Chat Model')
+			.setDesc('Model preselected in Discover chat (overrideable from the chat dropdown).')
+			.addText(text => text
+				.setPlaceholder('e.g., llama3.1:8b')
+				.setValue(this.plugin.settings.defaultChatModel || '')
+				.onChange(async (value) => {
+					this.plugin.settings.defaultChatModel = value;
+					await this.plugin.saveSettings();
+				}));
+
 		containerEl.createEl('h3', { text: 'Edit with AI' });
 
 		new Setting(containerEl)
@@ -461,6 +478,17 @@ class SerendipitySettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.systemPrompt || '')
 				.onChange(async (value) => {
 					this.plugin.settings.systemPrompt = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Default Edit Model')
+			.setDesc('Model preselected in the Edit with AI modal (overrideable from the dropdown).')
+			.addText(text => text
+				.setPlaceholder('e.g., qwen2.5:7b')
+				.setValue(this.plugin.settings.defaultEditModel || '')
+				.onChange(async (value) => {
+					this.plugin.settings.defaultEditModel = value;
 					await this.plugin.saveSettings();
 				}));
 

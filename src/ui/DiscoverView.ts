@@ -23,6 +23,7 @@ export class DiscoverView extends ItemView {
 	private onSessionSave: (() => Promise<void>) | null = null;
 	private typingIndicator: HTMLElement | null = null;
 	private ollamaUrl: string = 'http://localhost:11434';
+	private defaultChatModel: string | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -30,13 +31,15 @@ export class DiscoverView extends ItemView {
 		ollamaUrl?: string,
 		sessionManager?: SessionManager,
 		onSessionSave?: () => Promise<void>,
-		chatOptions?: ChatServiceOptions
+		chatOptions?: ChatServiceOptions,
+		defaultChatModel?: string
 	) {
 		super(leaf);
 		this.retrieval = retrieval ?? null;
 		this.sessionManager = sessionManager ?? null;
 		this.onSessionSave = onSessionSave ?? null;
 		this.ollamaUrl = ollamaUrl || 'http://localhost:11434';
+		this.defaultChatModel = defaultChatModel || null;
 		const adapter = new OllamaAdapter(this.ollamaUrl);
 		this.chatService = new ChatService(adapter, chatOptions);
 
@@ -293,7 +296,7 @@ export class DiscoverView extends ItemView {
 			const selected = this.modelSelectEl?.value || '';
 			if (selected) {
 				this.chatService.setModel(selected);
-				try { localStorage.setItem('vp-selected-model', selected); } catch {}
+				try { localStorage.setItem('vp-selected-chat-model', selected); } catch {}
 			}
 		});
 
@@ -325,7 +328,14 @@ export class DiscoverView extends ItemView {
 
 		// Preselect from localStorage or first option
 		let selected = '';
-		try { selected = localStorage.getItem('vp-selected-model') || ''; } catch {}
+		try {
+			selected = localStorage.getItem('vp-selected-chat-model')
+				|| localStorage.getItem('vp-selected-model')
+				|| '';
+		} catch {}
+		if ((!selected || !models.includes(selected)) && this.defaultChatModel && models.includes(this.defaultChatModel)) {
+			selected = this.defaultChatModel;
+		}
 		if (selected && models.includes(selected)) {
 			this.modelSelectEl.value = selected;
 		} else {
