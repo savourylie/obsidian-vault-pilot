@@ -60,7 +60,7 @@ export class DiscoverView extends ItemView {
 		container.empty();
 		container.classList.add('vp-discover');
 
-		const header = container.createEl('div', { cls: 'vp-header' });
+		const header = container.createEl('header', { cls: 'vp-header' });
 		const titleRow = header.createEl('div', { cls: 'vp-title-row' });
 		titleRow.createEl('h4', { text: 'Discover' });
 
@@ -82,11 +82,20 @@ export class DiscoverView extends ItemView {
 			newSessionBtn.addEventListener('click', () => this.createNewSession());
 		}
 
-		this.contentEl = container.createEl('div', { cls: 'vp-discover-content' });
-		this.resultsEl = this.contentEl.createEl('div', { cls: 'vp-results' });
+		const body = container.createEl('div', { cls: 'vp-body' });
+		const resultsSection = body.createEl('section', { cls: 'vp-section vp-section--results' });
+		const resultsHeader = resultsSection.createEl('div', { cls: 'vp-section-header' });
+		resultsHeader.createEl('h5', { text: 'Related Notes' });
+		resultsHeader.createEl('p', {
+			cls: 'vp-section-subtitle',
+			text: 'Surface serendipitous connections from your vault.',
+		});
+
+		this.contentEl = resultsSection.createEl('div', { cls: 'vp-results-scroll' });
+		this.resultsEl = this.contentEl.createEl('div', { cls: 'vp-results-list' });
 
 		// Add chat UI at the bottom
-		this.createChatUI(container);
+		this.createChatUI(body);
 
 		// Load active session
 		if (this.sessionManager) {
@@ -169,22 +178,36 @@ export class DiscoverView extends ItemView {
 			return;
 		}
 
-		const rows: HTMLElement[] = [];
+		const cards: HTMLElement[] = [];
 		for (const r of results) {
-			const row = this.resultsEl.createEl('div', { cls: 'vp-result vp-result--clickable' });
-			row.addEventListener('click', () => this.openFile(r.path));
-			row.createEl('div', { cls: 'vp-title', text: r.title });
-			row.createEl('div', { cls: 'vp-snippet', text: r.snippet });
+			const card = this.resultsEl.createEl('article', { cls: 'vp-result-card vp-result-card--clickable' });
+			card.tabIndex = 0;
+			card.addEventListener('click', () => this.openFile(r.path));
+			card.addEventListener('keydown', (event: KeyboardEvent) => {
+				if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+					event.preventDefault();
+					this.openFile(r.path);
+				}
+			});
+
+			const header = card.createEl('div', { cls: 'vp-result-card__header' });
+			header.createEl('div', { cls: 'vp-result-card__title', text: r.title });
+			const metaText = this.getResultPathLabel(r.path);
+			if (metaText) {
+				header.createEl('div', { cls: 'vp-result-card__meta', text: metaText });
+			}
+
+			card.createEl('div', { cls: 'vp-result-card__snippet', text: r.snippet });
 
 			// Set initial state for animation
-			row.style.opacity = '0';
-			row.style.transform = 'translateY(10px)';
-			rows.push(row);
+			card.style.opacity = '0';
+			card.style.transform = 'translateY(10px)';
+			cards.push(card);
 		}
 
 		// Staggered animation for all results
 		anime({
-			targets: rows,
+			targets: cards,
 			opacity: [0, 1],
 			translateY: [10, 0],
 			duration: 350,
@@ -200,6 +223,14 @@ export class DiscoverView extends ItemView {
 		await (leaf as any)?.openFile?.(file);
 	}
 
+	private getResultPathLabel(path: string): string {
+		const withoutExt = path.replace(/\.md$/i, '');
+		const parts = withoutExt.split('/').filter(Boolean);
+		if (parts.length === 0) return withoutExt;
+		const visibleParts = parts.slice(-3);
+		return visibleParts.join(' / ');
+	}
+
 	private insertLink(path: string) {
 		const file = this.app.vault.getAbstractFileByPath(path) as TFile | null;
 		const md = this.app.workspace.getActiveViewOfType?.(MarkdownView as any) as any;
@@ -208,21 +239,29 @@ export class DiscoverView extends ItemView {
 		md.editor.replaceSelection(`[[${target}]]`);
 	}
 
-	private createChatUI(container: HTMLElement) {
-		this.chatContainer = container.createEl('div', { cls: 'vp-chat-container' });
+	private createChatUI(parent: HTMLElement) {
+		this.chatContainer = parent.createEl('section', { cls: 'vp-section vp-section--chat' });
 
-		const chatHeader = this.chatContainer.createEl('div', { cls: 'vp-chat-header' });
-		chatHeader.createEl('h5', { text: 'Chat' });
+		const chatHeader = this.chatContainer.createEl('div', { cls: 'vp-section-header vp-chat-header' });
+		chatHeader.createEl('h5', { text: 'Assistant Chat' });
+		chatHeader.createEl('p', {
+			cls: 'vp-section-subtitle',
+			text: 'Ask follow-up questions about the active note.',
+		});
 
-		this.chatMessagesEl = this.chatContainer.createEl('div', { cls: 'vp-chat-messages' });
+		const chatSurface = this.chatContainer.createEl('div', { cls: 'vp-chat-surface' });
+		this.chatMessagesEl = chatSurface.createEl('div', { cls: 'vp-chat-messages' });
 
-		const inputContainer = this.chatContainer.createEl('div', { cls: 'vp-chat-input-container' });
+		const inputContainer = chatSurface.createEl('div', { cls: 'vp-chat-input-container' });
 		this.chatInputEl = inputContainer.createEl('textarea', {
 			cls: 'vp-chat-input',
 			attr: { placeholder: 'Ask about the current document...' }
 		});
 
-		const sendBtn = inputContainer.createEl('button', { cls: 'vp-btn vp-btn--primary', text: 'Send' });
+		const sendBtn = inputContainer.createEl('button', {
+			cls: 'vp-btn vp-btn--primary vp-chat-send',
+			text: 'Send'
+		});
 		sendBtn.addEventListener('click', () => this.sendMessage());
 
 		// Send on Enter (but Shift+Enter for newline)

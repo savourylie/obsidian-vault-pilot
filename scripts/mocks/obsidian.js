@@ -58,6 +58,50 @@ class ItemView {
   }
 }
 
+// Minimal Modal stub to support classes extending Modal in the bundle
+class Modal {
+  constructor(app) {
+    this.app = app;
+    this.contentEl = createElement();
+  }
+  open() { return this; }
+  close() { /* no-op */ }
+}
+
+// Helper for simple DOM-like elements used by contentEl
+function createElement() {
+  return {
+    _children: [],
+    className: '',
+    textContent: '',
+    empty() { this._children = []; this.textContent = ''; },
+    addClass(cls) { this.className = (this.className ? this.className + ' ' : '') + cls; },
+    createEl(tag, opts = {}) { const el = createElement(); if (opts.cls) el.addClass(opts.cls); if (opts.text) el.textContent = opts.text; el.tag = tag; return el; },
+    createDiv(opts = {}) { return this.createEl('div', opts); },
+  };
+}
+
+// Safe no-ops commonly used by views
+function setIcon(_el, _name) { /* no-op for headless */ }
+const MarkdownRenderer = {
+  renderMarkdown(markdown, target/*HTMLElement*/, _sourcePath, _ctx) {
+    // Minimal rendering; assign plain text in headless mode
+    if (target) target.textContent = String(markdown ?? '');
+  }
+};
+
+// Minimal Notice stub
+class Notice {
+  constructor(message) {
+    this.message = message;
+    // Print to console to aid debugging in headless runs
+    if (message) console.log('[Notice]', message);
+  }
+}
+
+// Minimal MarkdownView stub (only for type checks in plugin methods)
+class MarkdownView {}
+
 class TFile {
   constructor(path, content) {
     this.path = path;
@@ -142,6 +186,11 @@ module.exports = {
   Setting,
   WorkspaceLeaf,
   ItemView,
+  Modal,
+  Notice,
+  MarkdownRenderer,
+  MarkdownView,
+  setIcon,
   TFile,
   Vault,
   MetadataCache,
