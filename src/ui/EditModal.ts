@@ -3,7 +3,8 @@ import { App, Modal, TFile } from 'obsidian';
 export interface EditModalOptions {
 	selection: string;
 	file: TFile;
-	onSubmit: (instruction: string) => Promise<void>;
+	ollamaUrl?: string;
+	onSubmit: (instruction: string, model: string) => Promise<void>;
 }
 
 const PRESETS = {
@@ -25,6 +26,7 @@ export class EditModal extends Modal {
 	private generateBtn: HTMLButtonElement | null = null;
 	private cancelBtn: HTMLButtonElement | null = null;
 	private isGenerating: boolean = false;
+	private modelSelect: HTMLSelectElement | null = null;
 
 	constructor(app: App, options: EditModalOptions) {
 		super(app);
@@ -65,6 +67,19 @@ export class EditModal extends Modal {
 				}
 			});
 		});
+
+		// Model selector
+		const modelRow = contentEl.createDiv({ cls: 'vp-model-row' });
+		modelRow.createEl('label', { cls: 'vp-model-label', text: 'Model' });
+		this.modelSelect = modelRow.createEl('select', { cls: 'vp-model-select' }) as HTMLSelectElement;
+		this.modelSelect.appendChild(new Option('Loading models…', '', false, false));
+		this.modelSelect.disabled = true;
+		this.modelSelect.addEventListener('change', () => {
+			const m = this.modelSelect?.value || '';
+			try { localStorage.setItem('vp-selected-model', m); } catch {}
+			this.updateGenerateButton();
+		});
+		this.loadModels();
 
 		// Custom prompt section
 		const customEl = contentEl.createDiv({ cls: 'vp-custom-prompt' });
@@ -118,6 +133,7 @@ export class EditModal extends Modal {
 
 		const instruction = this.instructionInput.value.trim();
 		if (!instruction) return;
+		const model = this.modelSelect?.value || '';
 
 		// Set loading state
 		this.isGenerating = true;
@@ -133,7 +149,7 @@ export class EditModal extends Modal {
 		}
 
 		try {
-			await this.options.onSubmit(instruction);
+			await this.options.onSubmit(instruction, model);
 			this.close();
 		} catch (err) {
 			console.error('EditModal: Error during generation:', err);
@@ -154,5 +170,34 @@ export class EditModal extends Modal {
 
 	private capitalizeFirst(str: string): string {
 		return str.charAt(0).toUpperCase() + str.slice(1);
+	}
+
+	private async loadModels() {
+		const baseUrl = (this.options.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
+		const fallback = ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b'];
+		let models: string[] = [];
+		try {
+			const resp = await fetch(`${baseUrl}/api/tags`);
+			if (resp.ok) {
+				const data = await resp.json();
+				if (Array.isArray(data?.models)) {
+					models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+				}
+			}
+		} catch (_) {}
+		if (models.length === 0) models = fallback;
+
+		if (!this.modelSelect) return;
+		this.modelSelect.empty();
+		for (const m of models) this.modelSelect.appendChild(new Option(m, m));
+
+		let selected = '';
+		try { selected = localStorage.getItem('vp-selected-model') || ''; } catch {}
+		if (selected && models.includes(selected)) {
+			this.modelSelect.value = selected;
+		} else {
+			this.modelSelect.selectedIndex = 0;
+		}
+		this.modelSelect.disabled = false;
 	}
 }

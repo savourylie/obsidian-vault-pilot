@@ -236,8 +236,9 @@ export default class SerendipityPlugin extends Plugin {
 		new EditModal(this.app, {
 			selection,
 			file,
-			onSubmit: async (instruction) => {
-				await this.generateSuggestion(editor, file, selection, instruction, selectionStart, selectionEnd);
+			ollamaUrl: this.settings.ollamaUrl,
+			onSubmit: async (instruction, model) => {
+				await this.generateSuggestion(editor, file, selection, instruction, selectionStart, selectionEnd, model);
 			},
 		}).open();
 	}
@@ -248,7 +249,8 @@ export default class SerendipityPlugin extends Plugin {
 		selection: string,
 		instruction: string,
 		selectionStart: EditorPosition,
-		selectionEnd: EditorPosition
+		selectionEnd: EditorPosition,
+		model?: string
 	) {
 		console.log('VaultPilot: generateSuggestion called');
 		console.log('VaultPilot: Instruction:', instruction);
@@ -266,7 +268,7 @@ export default class SerendipityPlugin extends Plugin {
 
 			await adapter.stream(prompt, (chunk) => {
 				chunks.push(chunk);
-			});
+			}, { model });
 
 			const suggestion = chunks.join('').trim();
 
