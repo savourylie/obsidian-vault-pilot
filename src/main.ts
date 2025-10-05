@@ -11,10 +11,18 @@ import { ChatSessionsData } from './types/chat';
 
 interface SerendipityPluginSettings {
 	ollamaUrl: string;
+	maxPromptTokens: number;
+	reservedResponseTokens: number;
+	recentMessagesToKeep: number;
+	minRecentMessagesToKeep: number;
 }
 
 const DEFAULT_SETTINGS: SerendipityPluginSettings = {
 	ollamaUrl: 'http://localhost:11434',
+	maxPromptTokens: 8192,
+	reservedResponseTokens: 512,
+	recentMessagesToKeep: 6,
+	minRecentMessagesToKeep: 2,
 }
 
 export default class SerendipityPlugin extends Plugin {
@@ -49,7 +57,13 @@ export default class SerendipityPlugin extends Plugin {
 				this.retrievalService,
 				this.settings.ollamaUrl,
 				this.sessionManager,
-				() => this.saveSessions()
+				() => this.saveSessions(),
+				{
+					maxPromptTokens: this.settings.maxPromptTokens,
+					reservedResponseTokens: this.settings.reservedResponseTokens,
+					recentMessagesToKeep: this.settings.recentMessagesToKeep,
+					minRecentMessagesToKeep: this.settings.minRecentMessagesToKeep,
+				}
 			)
 		);
 
@@ -346,6 +360,72 @@ class SerendipitySettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.ollamaUrl = value;
 					await this.plugin.saveSettings();
+				}));
+
+		containerEl.createEl('h3', {text: 'Chat Token Window Settings'});
+
+		new Setting(containerEl)
+			.setName('Max Prompt Tokens')
+			.setDesc('Maximum number of tokens allowed in the chat prompt (hard cap for input tokens).')
+			.addText(text => text
+				.setPlaceholder('8192')
+				.setValue(String(this.plugin.settings.maxPromptTokens))
+				.onChange(async (value) => {
+					const num = parseInt(value, 10);
+					if (!isNaN(num) && num >= 1) {
+						this.plugin.settings.maxPromptTokens = num;
+						// Validate that reserved < max
+						if (this.plugin.settings.reservedResponseTokens >= num) {
+							this.plugin.settings.reservedResponseTokens = Math.max(1, num - 1);
+						}
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Reserved Response Tokens')
+			.setDesc('Number of tokens reserved for the model\'s response (must be less than max prompt tokens).')
+			.addText(text => text
+				.setPlaceholder('512')
+				.setValue(String(this.plugin.settings.reservedResponseTokens))
+				.onChange(async (value) => {
+					const num = parseInt(value, 10);
+					if (!isNaN(num) && num >= 1 && num < this.plugin.settings.maxPromptTokens) {
+						this.plugin.settings.reservedResponseTokens = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Recent Messages to Keep')
+			.setDesc('Target number of recent messages to keep verbatim in chat history.')
+			.addText(text => text
+				.setPlaceholder('6')
+				.setValue(String(this.plugin.settings.recentMessagesToKeep))
+				.onChange(async (value) => {
+					const num = parseInt(value, 10);
+					if (!isNaN(num) && num >= 1) {
+						this.plugin.settings.recentMessagesToKeep = num;
+						// Validate that min <= recent
+						if (this.plugin.settings.minRecentMessagesToKeep > num) {
+							this.plugin.settings.minRecentMessagesToKeep = num;
+						}
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Min Recent Messages to Keep')
+			.setDesc('Minimum number of recent messages to preserve before compressing (must be ≤ recent messages to keep).')
+			.addText(text => text
+				.setPlaceholder('2')
+				.setValue(String(this.plugin.settings.minRecentMessagesToKeep))
+				.onChange(async (value) => {
+					const num = parseInt(value, 10);
+					if (!isNaN(num) && num >= 1 && num <= this.plugin.settings.recentMessagesToKeep) {
+						this.plugin.settings.minRecentMessagesToKeep = num;
+						await this.plugin.saveSettings();
+					}
 				}));
 	}
 }

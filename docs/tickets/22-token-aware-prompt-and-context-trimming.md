@@ -1,7 +1,7 @@
 # Ticket 22: Token-Aware Prompt Assembly and Context Trimming
 
 **Phase:** 6 - Chat Windowing
-**Status:** To Do
+**Status:** Done
 **Dependencies:** Ticket 21
 
 ## Description
@@ -21,8 +21,8 @@ Build the prompt to fit within the effective budget, reserving `reservedResponse
     - Exclude the just-added user message from the previous conversation section.
 
 ## Tasks
-- [ ] Make `buildPrompt()` token-aware and context-trimming.
-- [ ] Verify prompt assembly with and without context/summary.
+- [x] Make `buildPrompt()` token-aware and context-trimming.
+- [x] Verify prompt assembly with and without context/summary.
 
 ## Testing
 - With a large context string, confirm that the prompt estimate fits budget and context is trimmed.

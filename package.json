@@ -9,7 +9,8 @@
     "headless:test": "node scripts/headless-test.js",
     "headless:test:indexing": "node scripts/indexing-test.js",
     "headless:test:ollama": "node scripts/ollama-test.js",
-    "headless:test:context": "node scripts/context-assembler-test.js"
+    "headless:test:context": "node scripts/context-assembler-test.js",
+    "headless:test:chat": "node scripts/chat-window-test.js"
   },
   "keywords": [],
   "author": "dev",

@@ -1,7 +1,7 @@
 # Ticket 24: Headless Chat Compaction Test
 
 **Phase:** 6 - Chat Windowing
-**Status:** To Do
+**Status:** Done
 **Dependencies:** Ticket 23
 
 ## Description
@@ -23,9 +23,9 @@ Add a Node-based headless test script to validate windowing, compaction, and tri
   - Add script: `headless:test:chat`.
 
 ## Tasks
-- [ ] Add stub adapter and harness.
-- [ ] Implement tests for the listed scenarios with PASS/FAIL logs.
-- [ ] Add npm script.
+- [x] Add stub adapter and harness.
+- [x] Implement tests for the listed scenarios with PASS/FAIL logs.
+- [x] Add npm script.
 
 ## Testing
 - Run `npm run headless:test:chat` and confirm all scenarios print PASS and exit code is 0.

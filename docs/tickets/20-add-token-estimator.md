@@ -1,7 +1,7 @@
 # Ticket 20: Add Heuristic Token Estimator
 
 **Phase:** 6 - Chat Windowing
-**Status:** To Do
+**Status:** Done
 **Dependencies:** Ticket 19
 
 ## Description
@@ -20,9 +20,9 @@ Add simple, dependency-free token estimation helpers in `ChatService` to budget 
   - Keep functions pure and small.
 
 ## Tasks
-- [ ] Implement `estimateTokens()`.
-- [ ] Implement `estimateMessagesTokens()`.
-- [ ] Add minimal inline usage (e.g., temporary console checks) and remove after verification.
+- [x] Implement `estimateTokens()`.
+- [x] Implement `estimateMessagesTokens()`.
+- [x] Add minimal inline usage (e.g., temporary console checks) and remove after verification.
 
 ## Testing
 - Manually compare estimates for short vs long strings and ensure monotonic behavior.

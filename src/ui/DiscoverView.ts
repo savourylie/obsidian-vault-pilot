@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, MarkdownView, TFile, App, setIcon, MarkdownRenderer } from 'obsidian';
 import { RetrievalService } from '../services/RetrievalService';
-import { ChatService } from '../services/ChatService';
+import { ChatService, ChatServiceOptions } from '../services/ChatService';
 import { OllamaAdapter } from '../llm/OllamaAdapter';
 import { SessionManager } from '../services/SessionManager';
 
@@ -25,14 +25,15 @@ export class DiscoverView extends ItemView {
 		retrieval?: RetrievalService,
 		ollamaUrl?: string,
 		sessionManager?: SessionManager,
-		onSessionSave?: () => Promise<void>
+		onSessionSave?: () => Promise<void>,
+		chatOptions?: ChatServiceOptions
 	) {
 		super(leaf);
 		this.retrieval = retrieval ?? null;
 		this.sessionManager = sessionManager ?? null;
 		this.onSessionSave = onSessionSave ?? null;
 		const adapter = new OllamaAdapter(ollamaUrl || 'http://localhost:11434');
-		this.chatService = new ChatService(adapter);
+		this.chatService = new ChatService(adapter, chatOptions);
 
 		// Wire session manager to chat service
 		if (this.sessionManager) {

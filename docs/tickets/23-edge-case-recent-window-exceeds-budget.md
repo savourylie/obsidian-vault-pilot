@@ -1,7 +1,7 @@
 # Ticket 23: Edge Case — Recent Window Exceeds Budget
 
 **Phase:** 6 - Chat Windowing
-**Status:** To Do
+**Status:** Done
 **Dependencies:** Ticket 22
 
 ## Description
@@ -21,8 +21,8 @@ Handle the case where the most recent `recentMessagesToKeep` messages alone exce
     - Summarize inside the recent block when necessary.
 
 ## Tasks
-- [ ] Implement dynamic shrinking of recent window.
-- [ ] Implement targeted summarization within recent window if needed.
+- [x] Implement dynamic shrinking of recent window.
+- [x] Implement targeted summarization within recent window if needed.
 
 ## Testing
 - Create very large recent messages and confirm the budget is met while preserving at least `minRecentMessagesToKeep` or a concise system summary + current user message.

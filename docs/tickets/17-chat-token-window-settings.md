@@ -1,7 +1,7 @@
 # Ticket 17: Add Chat Token Window Settings
 
 **Phase:** 6 - Chat Windowing
-**Status:** To Do
+**Status:** Done
 **Dependencies:** None
 
 ## Description
@@ -29,10 +29,10 @@ Persist them in plugin data and surface them in the settings tab.
   - Save via existing `saveSettings()`.
 
 ## Tasks
-- [ ] Add fields to `SerendipityPluginSettings` and `DEFAULT_SETTINGS`.
-- [ ] Render number inputs in settings tab with validation and descriptions.
-- [ ] Persist and reload the settings.
-- [ ] Manual smoke: change values, reload plugin, confirm persistence.
+- [x] Add fields to `SerendipityPluginSettings` and `DEFAULT_SETTINGS`.
+- [x] Render number inputs in settings tab with validation and descriptions.
+- [x] Persist and reload the settings.
+- [x] Manual smoke: change values, reload plugin, confirm persistence.
 
 ## Testing
 - Change each field to a non-default value and verify it persists.

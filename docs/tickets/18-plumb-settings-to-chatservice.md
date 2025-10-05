@@ -1,7 +1,7 @@
 # Ticket 18: Plumb Chat Settings to ChatService
 
 **Phase:** 6 - Chat Windowing
-**Status:** To Do
+**Status:** Done
 **Dependencies:** Ticket 17
 
 ## Description
@@ -23,9 +23,9 @@ Pass the new chat windowing settings from the plugin to the ChatService, so the 
   - When registering the view, pass a `chatOptions` object constructed from `this.settings`.
 
 ## Tasks
-- [ ] Add `ChatServiceOptions` type and update `ChatService` constructor signature (no behavior changes yet).
-- [ ] Update `DiscoverView` constructor and instantiation site in `main.ts` to pass options through.
-- [ ] Ensure build succeeds and Discover panel opens normally.
+- [x] Add `ChatServiceOptions` type and update `ChatService` constructor signature (no behavior changes yet).
+- [x] Update `DiscoverView` constructor and instantiation site in `main.ts` to pass options through.
+- [x] Ensure build succeeds and Discover panel opens normally.
 
 ## Testing
 - Build plugin and open Discover panel; verify no errors.

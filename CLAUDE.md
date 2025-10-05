@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **VaultPilot** is an Obsidian plugin that acts as a "serendipity engine" — surfacing forgotten connections with precise context control, plus a safe surgical inline AI editor. Think "Cursor for note-taking" with privacy-first local indexing.
 
-Key features planned:
-- **Discover Panel**: Ranked related notes + synthesis triggered on save/idle
+Key features:
+- **Discover Panel**: Ranked related notes + chat interface with persistent sessions
 - **Inline Edit (⌘-⌥-K)**: AI rewrite → Suggestions sandbox with diff + Apply
-- **Scoped Chat Drawer**: Chat about current doc + scope
+- **Chat with Context**: Chat about current doc with token-aware history management
 - **Privacy Modes**: Local-only (BM25) or Remote LLMs (clearly indicated)
 
 ## Build & Development Commands
@@ -22,8 +22,11 @@ npm run dev
 npm run build
 
 # Headless testing
-npm run headless:test
-npm run headless:test:indexing
+npm run headless:test                # Main toggle/panel tests
+npm run headless:test:indexing       # Indexing service tests
+npm run headless:test:ollama         # Ollama adapter tests
+npm run headless:test:context        # Context assembler tests
+npm run headless:test:chat           # Chat token window and compaction tests
 ```
 
 **Note**: This plugin uses `esbuild` to bundle `src/main.ts` → `main.js`. To test in Obsidian, copy the repo into `<vault>/.obsidian/plugins/vault-pilot/` and enable Community Plugins.
@@ -34,22 +37,32 @@ npm run headless:test:indexing
 src/
   main.ts                  # Entry point: SerendipityPlugin class
   ui/
-    DiscoverView.ts       # Right-sidebar Discover panel view
+    DiscoverView.ts       # Right-sidebar Discover panel with chat interface
+    EditModal.ts          # Modal for inline AI edit instructions
+    SuggestionCallout.ts  # Renders AI suggestions as collapsible callouts
   services/
     IndexingService.ts    # BM25 index (tokenize, tf-idf, frontmatter ai.index flag)
     RetrievalService.ts   # Search/ranking via IndexingService
-  indexing/               # (Future: advanced ranking/embeddings)
-  llm/                    # (Future: LLM adapters - OpenAI/Claude/Ollama)
-  types/                  # (Future: shared interfaces)
+    ChatService.ts        # Chat history + token window management + compaction
+    SessionManager.ts     # Persistent chat session storage
+    ContextAssembler.ts   # Builds prompts with retrieval context
+  llm/
+    OllamaAdapter.ts      # Ollama API integration (streaming + generation)
+  types/
+    chat.ts               # Chat message and session types
+    llm.ts                # LLM adapter interfaces
 
 docs/
   *.md                    # Design docs (PRD, Architecture, README)
   tickets/                # Development tickets (granular work items)
 
 scripts/
-  headless-test.js        # Node-based smoke tests (mocked Obsidian API)
-  indexing-test.js        # Indexing-specific tests
-  mocks/obsidian.js       # Minimal Obsidian API mock for testing
+  headless-test.js              # Node-based smoke tests (mocked Obsidian API)
+  indexing-test.js              # Indexing-specific tests
+  ollama-test.js                # Ollama adapter tests
+  context-assembler-test.js     # Context assembly tests
+  chat-window-test.js           # Chat token window and compaction tests
+  mocks/obsidian.js             # Minimal Obsidian API mock for testing
 
 Root files:
   manifest.json           # Obsidian plugin metadata
@@ -80,11 +93,25 @@ Root files:
    - Displays ranked results with Open/Insert Link/Quote actions
    - Status indicators for loading/empty states
 
-4. **SerendipityPlugin** (`src/main.ts`)
+4. **ChatService** (`src/services/ChatService.ts`)
+   - Manages conversation history with token-aware compaction
+   - Automatically summarizes older messages when exceeding token budget
+   - Trims context to fit within maxPromptTokens
+   - Keeps recent messages (configurable via recentMessagesToKeep) verbatim
+   - Handles edge case: shrinks recent window if needed (down to minRecentMessagesToKeep)
+   - Integrates with SessionManager for persistent chat sessions
+
+5. **SessionManager** (`src/services/SessionManager.ts`)
+   - Manages multiple persistent chat sessions
+   - Tracks active session and associates messages with context files
+   - Exports/imports session data to plugin storage
+
+6. **SerendipityPlugin** (`src/main.ts`)
    - Plugin entry point
-   - Registers commands: `toggle-discover-panel`, `reindex-vault`, `ai-edit-selection` (stub)
+   - Registers commands: `toggle-discover-panel`, `reindex-vault`, `ai-edit-selection`
    - Wires vault events → IndexingService updates → saves index to plugin data
-   - Manages plugin settings (e.g., Ollama base URL)
+   - Manages plugin settings (Ollama URL, token window settings)
+   - Persists index, settings, and chat sessions to plugin data
 
 ### Ranking Blend (Planned)
 
@@ -132,11 +159,14 @@ where `graph` includes backlinks, shared tags, same folder.
   }
   ```
 
-### Index Persistence
+### Plugin Data Persistence
 
-- Index is serialized to plugin data via `IndexingService.export()` → `SerializedIndexV1`
-- On plugin load, deserialized via `IndexingService.load(persistedIndex)`
-- Plugin data structure: `{ settings: {...}, index: {...} }`
+- Plugin data structure: `{ settings: {...}, index: {...}, chatSessions: {...} }`
+- **Index**: Serialized to plugin data via `IndexingService.export()` → `SerializedIndexV1`
+  - On plugin load, deserialized via `IndexingService.load(persistedIndex)`
+- **Chat Sessions**: Serialized via `SessionManager.export()` → `ChatSessionsData`
+  - Includes all session messages, metadata, and active session ID
+  - Auto-saved after each message via `saveSessions()` callback
 
 ### Vault Event Wiring
 
@@ -149,7 +179,42 @@ where `graph` includes backlinks, shared tags, same folder.
 - Toggle command (`toggle-discover-panel`) is idempotent:
   - If panel exists → detach all leaves of type `VIEW_TYPE_DISCOVER`
   - If panel doesn't exist → create in right sidebar + reveal
-- Debounced search (600ms) prevents excessive queries on rapid file changes
+- Panel now includes chat interface with persistent session management
+- Chat messages auto-save to session after each exchange
+
+### Chat Token Window Management
+
+- **Token Budget**: `maxPromptTokens - reservedResponseTokens = effectiveBudget`
+- **Compaction Trigger**: When `messagesTokens + contextTokens > effectiveBudget`
+- **Strategy**: Summarize older messages, keep recent `recentMessagesToKeep` messages verbatim
+- **Edge Case Handling**: If recent window alone exceeds budget, shrink to `minRecentMessagesToKeep`
+- **Context Trimming**: Large documents automatically trimmed to fit remaining budget
+- **Fallback**: If LLM summarization fails, use truncated fallback summary
+
+## Plugin Settings
+
+VaultPilot exposes the following settings in the Settings tab:
+
+1. **Ollama Base URL** (default: `http://localhost:11434`)
+   - Base URL for Ollama API requests
+
+2. **Max Prompt Tokens** (default: `8192`)
+   - Maximum tokens allowed in chat prompt (hard cap for input)
+   - Must be greater than Reserved Response Tokens
+
+3. **Reserved Response Tokens** (default: `512`)
+   - Tokens reserved for model's response (subtracted from max)
+   - Must be less than Max Prompt Tokens
+
+4. **Recent Messages to Keep** (default: `6`)
+   - Target number of recent messages to keep verbatim during compaction
+   - Must be greater than or equal to Min Recent Messages to Keep
+
+5. **Min Recent Messages to Keep** (default: `2`)
+   - Minimum recent messages preserved when shrinking window (edge case handling)
+   - Must be less than or equal to Recent Messages to Keep
+
+**Token Budget Formula**: `effectiveBudget = maxPromptTokens - reservedResponseTokens`
 
 ## Common Development Tasks
 

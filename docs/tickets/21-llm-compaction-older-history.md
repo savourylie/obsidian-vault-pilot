@@ -1,7 +1,7 @@
 # Ticket 21: LLM Compaction of Older History into System Summary
 
 **Phase:** 6 - Chat Windowing
-**Status:** To Do
+**Status:** Done
 **Dependencies:** Ticket 20
 
 ## Description
@@ -21,9 +21,9 @@ When the estimated tokens of the message history exceed the effective budget (`m
   - Always keep the last `recentMessagesToKeep` messages verbatim (this may be adjusted in Ticket 23 for edge cases).
 
 ## Tasks
-- [ ] Implement `compactHistoryIfNeeded(context)` covering the older→summary transformation.
-- [ ] Integrate call site in `sendMessage()`.
-- [ ] Persist via existing `saveToSession()`.
+- [x] Implement `compactHistoryIfNeeded(context)` covering the older→summary transformation.
+- [x] Integrate call site in `sendMessage()`.
+- [x] Persist via existing `saveToSession()`.
 
 ## Testing
 - Create a long chat (simulate by pushing many messages), trigger compaction, and verify a single `system` message appears at index 0 with last N messages retained.

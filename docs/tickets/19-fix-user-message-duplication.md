@@ -1,7 +1,7 @@
 # Ticket 19: Fix Duplicate Inclusion of Latest User Message
 
 **Phase:** 6 - Chat Windowing
-**Status:** To Do
+**Status:** Done
 **Dependencies:** Ticket 18
 
 ## Description
@@ -18,8 +18,8 @@ Currently, `buildPrompt()` includes the latest user message twice: once in the h
   - Keep the rest of the rendering consistent, including role labels and newlines.
 
 ## Tasks
-- [ ] Adjust recent history slice to exclude the current user message.
-- [ ] Quick manual verification by logging the built prompt for a single turn.
+- [x] Adjust recent history slice to exclude the current user message.
+- [x] Quick manual verification by logging the built prompt for a single turn.
 
 ## Testing
 - Send a message and confirm the LLM receives only one instance of the current user message in the “User:” lines.
