@@ -399,7 +399,7 @@ class SerendipitySettingTab extends PluginSettingTab {
 					modelsReloadTimer = window.setTimeout(async () => {
 						try {
 							// @ts-ignore - defined within display scope
-							await loadModelsAndPopulate();
+							await loadModelsAndPopulate(true);
 						} catch {}
 					}, 600);
 				}));
@@ -506,7 +506,7 @@ class SerendipitySettingTab extends PluginSettingTab {
 				btn.setIcon?.('refresh-ccw');
 				btn.setTooltip?.('Reload models');
 				btn.onClick?.(async () => {
-					try { await loadModelsAndPopulate(); } catch {}
+					try { await loadModelsAndPopulate(true); } catch {}
 				});
 			});
 		chatHelpEl = containerEl.createEl('div');
@@ -555,43 +555,14 @@ class SerendipitySettingTab extends PluginSettingTab {
 			editReloadBtn?.setTooltip?.(loading ? 'Loading models…' : 'Reload models');
 		};
 
-		const loadModelsAndPopulate = async () => {
-			// Set loading state on dropdowns
-			setReloadButtonsLoading(true);
-			if (chatModelDropdown && chatModelDropdown.selectEl) {
-				chatModelDropdown.selectEl.empty();
-				chatModelDropdown.addOption('', 'Loading models…');
-				chatModelDropdown.setValue('');
-				chatModelDropdown.selectEl.disabled = true;
-			}
-			if (editModelDropdown && editModelDropdown.selectEl) {
-				editModelDropdown.selectEl.empty();
-				editModelDropdown.addOption('', 'Loading models…');
-				editModelDropdown.setValue('');
-				editModelDropdown.selectEl.disabled = true;
-			}
-			const baseUrl = (this.plugin.settings.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
-			let models: string[] = [];
-			let ok = false;
-			try {
-				const resp = await fetch(`${baseUrl}/api/tags`);
-				if (resp.ok) {
-					const data = await resp.json();
-					if (Array.isArray(data?.models)) {
-						models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
-						ok = models.length > 0;
-					}
-				}
-			} catch (_e) {}
-
-			// Populate chat dropdown
+		const populateFromModels = (models: string[], ok: boolean) => {
+			// Chat dropdown
 			if (chatModelDropdown && chatModelDropdown.selectEl) {
 				chatModelDropdown.selectEl.empty();
 				if (ok) {
 					for (const m of models) chatModelDropdown.addOption(m, m);
 					chatModelDropdown.selectEl.disabled = false;
 					if (chatHelpEl) clearWarning(chatHelpEl);
-					// Select from settings if present
 					const preferred = this.plugin.settings.defaultChatModel;
 					if (preferred && models.includes(preferred)) chatModelDropdown.setValue(preferred);
 					else chatModelDropdown.setValue(models[0]);
@@ -602,8 +573,7 @@ class SerendipitySettingTab extends PluginSettingTab {
 					if (chatHelpEl) showModelsWarning(chatHelpEl);
 				}
 			}
-
-			// Populate edit dropdown
+			// Edit dropdown
 			if (editModelDropdown && editModelDropdown.selectEl) {
 				editModelDropdown.selectEl.empty();
 				if (ok) {
@@ -620,11 +590,53 @@ class SerendipitySettingTab extends PluginSettingTab {
 					if (editHelpEl) showModelsWarning(editHelpEl);
 				}
 			}
+		};
+
+		const loadModelsAndPopulate = async (forceReload?: boolean) => {
+			const baseUrl = (this.plugin.settings.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
+			const cache = (this.plugin as any)._modelsCache;
+			if (!forceReload && cache && cache.baseUrl === baseUrl && Array.isArray(cache.models) && cache.models.length > 0) {
+				populateFromModels(cache.models, true);
+				return;
+			}
+
+			// Set loading state and fetch fresh
+			setReloadButtonsLoading(true);
+			if (chatModelDropdown && chatModelDropdown.selectEl) {
+				chatModelDropdown.selectEl.empty();
+				chatModelDropdown.addOption('', 'Loading models…');
+				chatModelDropdown.setValue('');
+				chatModelDropdown.selectEl.disabled = true;
+			}
+			if (editModelDropdown && editModelDropdown.selectEl) {
+				editModelDropdown.selectEl.empty();
+				editModelDropdown.addOption('', 'Loading models…');
+				editModelDropdown.setValue('');
+				editModelDropdown.selectEl.disabled = true;
+			}
+
+			let models: string[] = [];
+			let ok = false;
+			try {
+				const resp = await fetch(`${baseUrl}/api/tags`);
+				if (resp.ok) {
+					const data = await resp.json();
+					if (Array.isArray(data?.models)) {
+						models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+						ok = models.length > 0;
+					}
+				}
+			} catch (_e) {}
+
+			populateFromModels(models, ok);
+			if (ok) {
+				(this.plugin as any)._modelsCache = { baseUrl, models };
+			}
 			setReloadButtonsLoading(false);
 		};
 
 		// Load once on open
-		loadModelsAndPopulate();
+		loadModelsAndPopulate(false);
 
 		// Reload models when base URL changes
 		// Patch existing Ollama URL setting to also refresh dropdowns
