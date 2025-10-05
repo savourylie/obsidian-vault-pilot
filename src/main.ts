@@ -389,6 +389,11 @@ class SerendipitySettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.ollamaUrl = value;
 					await this.plugin.saveSettings();
+					// Attempt to reload available models for dropdowns
+					try {
+						// @ts-ignore - defined within display scope
+						await loadModelsAndPopulate();
+					} catch {}
 				}));
 
 		containerEl.createEl('h3', {text: 'Chat Token Window Settings'});
@@ -457,16 +462,36 @@ class SerendipitySettingTab extends PluginSettingTab {
 					}
 				}));
 
+
+		// Placeholders to hold dropdown references and help messages
+		let chatModelDropdown: any = null;
+		let editModelDropdown: any = null;
+		let chatHelpEl: HTMLElement | null = null;
+		let editHelpEl: HTMLElement | null = null;
+
+		const showModelsWarning = (el: HTMLElement) => {
+			el.empty();
+			const note = el.createEl('div', { text: 'Could not load models from Ollama. ' });
+			note.appendText('Install or start Ollama: ');
+			note.createEl('a', { text: 'Download Ollama', attr: { href: 'https://ollama.com/download' } });
+			note.addClass('setting-item-description');
+		};
+
+		const clearWarning = (el: HTMLElement) => { el.empty(); };
+
 		new Setting(containerEl)
 			.setName('Default Chat Model')
 			.setDesc('Model preselected in Discover chat (overrideable from the chat dropdown).')
-			.addText(text => text
-				.setPlaceholder('e.g., llama3.1:8b')
-				.setValue(this.plugin.settings.defaultChatModel || '')
-				.onChange(async (value) => {
+			.addDropdown((drop: any) => {
+				chatModelDropdown = drop;
+				drop.addOption('', 'Loading models…');
+				drop.setValue('');
+				drop.onChange(async (value: string) => {
 					this.plugin.settings.defaultChatModel = value;
 					await this.plugin.saveSettings();
-				}));
+				});
+			});
+		chatHelpEl = containerEl.createEl('div');
 
 		containerEl.createEl('h3', { text: 'Edit with AI' });
 
@@ -481,16 +506,80 @@ class SerendipitySettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+
 		new Setting(containerEl)
 			.setName('Default Edit Model')
 			.setDesc('Model preselected in the Edit with AI modal (overrideable from the dropdown).')
-			.addText(text => text
-				.setPlaceholder('e.g., qwen2.5:7b')
-				.setValue(this.plugin.settings.defaultEditModel || '')
-				.onChange(async (value) => {
+			.addDropdown((drop: any) => {
+				editModelDropdown = drop;
+				drop.addOption('', 'Loading models…');
+				drop.setValue('');
+				drop.onChange(async (value: string) => {
 					this.plugin.settings.defaultEditModel = value;
 					await this.plugin.saveSettings();
-				}));
+				});
+			});
+		editHelpEl = containerEl.createEl('div');
+
+		// Fetch models from Ollama and populate dropdowns
+		const loadModelsAndPopulate = async () => {
+			const baseUrl = (this.plugin.settings.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
+			let models: string[] = [];
+			let ok = false;
+			try {
+				const resp = await fetch(`${baseUrl}/api/tags`);
+				if (resp.ok) {
+					const data = await resp.json();
+					if (Array.isArray(data?.models)) {
+						models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+						ok = models.length > 0;
+					}
+				}
+			} catch (_e) {}
+
+			// Populate chat dropdown
+			if (chatModelDropdown && chatModelDropdown.selectEl) {
+				chatModelDropdown.selectEl.empty();
+				if (ok) {
+					for (const m of models) chatModelDropdown.addOption(m, m);
+					chatModelDropdown.selectEl.disabled = false;
+					if (chatHelpEl) clearWarning(chatHelpEl);
+					// Select from settings if present
+					const preferred = this.plugin.settings.defaultChatModel;
+					if (preferred && models.includes(preferred)) chatModelDropdown.setValue(preferred);
+					else chatModelDropdown.setValue(models[0]);
+				} else {
+					chatModelDropdown.addOption('', 'No models found');
+					chatModelDropdown.setValue('');
+					chatModelDropdown.selectEl.disabled = true;
+					if (chatHelpEl) showModelsWarning(chatHelpEl);
+				}
+			}
+
+			// Populate edit dropdown
+			if (editModelDropdown && editModelDropdown.selectEl) {
+				editModelDropdown.selectEl.empty();
+				if (ok) {
+					for (const m of models) editModelDropdown.addOption(m, m);
+					editModelDropdown.selectEl.disabled = false;
+					if (editHelpEl) clearWarning(editHelpEl);
+					const preferred = this.plugin.settings.defaultEditModel;
+					if (preferred && models.includes(preferred)) editModelDropdown.setValue(preferred);
+					else editModelDropdown.setValue(models[0]);
+				} else {
+					editModelDropdown.addOption('', 'No models found');
+					editModelDropdown.setValue('');
+					editModelDropdown.selectEl.disabled = true;
+					if (editHelpEl) showModelsWarning(editHelpEl);
+				}
+			}
+		};
+
+		// Load once on open
+		loadModelsAndPopulate();
+
+		// Reload models when base URL changes
+		// Patch existing Ollama URL setting to also refresh dropdowns
 
 		new Setting(containerEl)
 			.setName('Rewrite Prompt')
