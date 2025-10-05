@@ -3,6 +3,7 @@ import { RetrievalService } from '../services/RetrievalService';
 import { ChatService, ChatServiceOptions } from '../services/ChatService';
 import { OllamaAdapter } from '../llm/OllamaAdapter';
 import { SessionManager } from '../services/SessionManager';
+import anime from 'animejs';
 
 export const VIEW_TYPE_DISCOVER = 'serendipity-discover-view';
 
@@ -19,6 +20,7 @@ export class DiscoverView extends ItemView {
 	private sessionManager: SessionManager | null = null;
 	private sessionDropdown: HTMLElement | null = null;
 	private onSessionSave: (() => Promise<void>) | null = null;
+	private typingIndicator: HTMLElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -166,12 +168,29 @@ export class DiscoverView extends ItemView {
 			this.renderEmpty('No related notes.');
 			return;
 		}
+
+		const rows: HTMLElement[] = [];
 		for (const r of results) {
 			const row = this.resultsEl.createEl('div', { cls: 'vp-result vp-result--clickable' });
 			row.addEventListener('click', () => this.openFile(r.path));
 			row.createEl('div', { cls: 'vp-title', text: r.title });
 			row.createEl('div', { cls: 'vp-snippet', text: r.snippet });
+
+			// Set initial state for animation
+			row.style.opacity = '0';
+			row.style.transform = 'translateY(10px)';
+			rows.push(row);
 		}
+
+		// Staggered animation for all results
+		anime({
+			targets: rows,
+			opacity: [0, 1],
+			translateY: [10, 0],
+			duration: 350,
+			delay: anime.stagger(60),
+			easing: 'easeOutCubic'
+		});
 	}
 
 	private async openFile(path: string) {
@@ -234,20 +253,26 @@ export class DiscoverView extends ItemView {
 		// Add user message to UI
 		this.addMessageToUI('user', message);
 
-		// Add assistant placeholder
-		const assistantMsg = this.addMessageToUI('assistant', '');
-		const assistantContent = assistantMsg.querySelector('.vp-chat-message-content') as HTMLElement;
+		// Show typing indicator
+		this.showTypingIndicator();
 
 		try {
 			let accumulatedContent = '';
+			let assistantMsg: HTMLElement | null = null;
+			let assistantContent: HTMLElement | null = null;
 
 			await this.chatService.sendMessage(message, context, (chunk: string) => {
+				// On first chunk, hide typing indicator and create message
+				if (!assistantMsg) {
+					this.hideTypingIndicator();
+					assistantMsg = this.addMessageToUI('assistant', '');
+					assistantContent = assistantMsg.querySelector('.vp-chat-message-content') as HTMLElement;
+				}
+
 				if (!assistantContent) return;
 				accumulatedContent += chunk;
 				this.renderMarkdownContent(assistantContent, accumulatedContent);
-				if (this.chatMessagesEl) {
-					this.chatMessagesEl.scrollTop = this.chatMessagesEl.scrollHeight;
-				}
+				this.smoothScrollToBottom();
 			});
 
 			// Save session after message is complete
@@ -256,9 +281,12 @@ export class DiscoverView extends ItemView {
 			}
 		} catch (err) {
 			console.error('Chat error:', err);
-			if (assistantContent) {
-				assistantContent.empty();
-				assistantContent.textContent = 'Error: ' + (err instanceof Error ? err.message : 'Unknown error');
+			this.hideTypingIndicator();
+			const errorMsg = this.addMessageToUI('assistant', '');
+			const errorContent = errorMsg.querySelector('.vp-chat-message-content') as HTMLElement;
+			if (errorContent) {
+				errorContent.empty();
+				errorContent.textContent = 'Error: ' + (err instanceof Error ? err.message : 'Unknown error');
 			}
 		}
 	}
@@ -273,10 +301,92 @@ export class DiscoverView extends ItemView {
 		const contentEl = msgEl.createEl('div', { cls: 'vp-chat-message-content' });
 		this.renderMarkdownContent(contentEl, content);
 
-		// Auto-scroll to bottom
-		this.chatMessagesEl.scrollTop = this.chatMessagesEl.scrollHeight;
+		// Animate message entry
+		const translateX = role === 'user' ? -20 : 20;
+		msgEl.style.opacity = '0';
+		msgEl.style.transform = `translateX(${translateX}px)`;
+
+		anime({
+			targets: msgEl,
+			opacity: [0, 1],
+			translateX: [translateX, 0],
+			duration: 400,
+			easing: 'easeOutCubic'
+		});
+
+		// Smooth auto-scroll to bottom
+		this.smoothScrollToBottom();
 
 		return msgEl;
+	}
+
+	private smoothScrollToBottom() {
+		if (!this.chatMessagesEl) return;
+
+		anime({
+			targets: this.chatMessagesEl,
+			scrollTop: this.chatMessagesEl.scrollHeight,
+			duration: 300,
+			easing: 'easeOutQuad'
+		});
+	}
+
+	private showTypingIndicator() {
+		if (!this.chatMessagesEl) return;
+
+		// Remove existing indicator if any
+		this.hideTypingIndicator();
+
+		// Create typing indicator
+		this.typingIndicator = this.chatMessagesEl.createEl('div', { cls: 'vp-chat-message vp-chat-message--assistant' });
+		const roleLabel = this.typingIndicator.createEl('div', { cls: 'vp-chat-message-role' });
+		roleLabel.textContent = 'Assistant';
+
+		const contentEl = this.typingIndicator.createEl('div', { cls: 'vp-chat-message-content vp-typing-indicator' });
+		const dot1 = contentEl.createEl('span', { cls: 'vp-typing-dot' });
+		const dot2 = contentEl.createEl('span', { cls: 'vp-typing-dot' });
+		const dot3 = contentEl.createEl('span', { cls: 'vp-typing-dot' });
+
+		// Animate entry
+		this.typingIndicator.style.opacity = '0';
+		this.typingIndicator.style.transform = 'translateX(20px)';
+
+		anime({
+			targets: this.typingIndicator,
+			opacity: [0, 1],
+			translateX: [20, 0],
+			duration: 400,
+			easing: 'easeOutCubic'
+		});
+
+		// Animate dots with stagger
+		anime({
+			targets: [dot1, dot2, dot3],
+			scale: [0.8, 1],
+			opacity: [0.5, 1],
+			duration: 600,
+			loop: true,
+			direction: 'alternate',
+			delay: anime.stagger(150),
+			easing: 'easeInOutQuad'
+		});
+
+		this.smoothScrollToBottom();
+	}
+
+	private hideTypingIndicator() {
+		if (!this.typingIndicator) return;
+
+		anime({
+			targets: this.typingIndicator,
+			opacity: [1, 0],
+			duration: 200,
+			easing: 'easeOutQuad',
+			complete: () => {
+				this.typingIndicator?.remove();
+				this.typingIndicator = null;
+			}
+		});
 	}
 
 	private renderMarkdownContent(target: HTMLElement, markdown: string) {
@@ -290,8 +400,18 @@ export class DiscoverView extends ItemView {
 
 		// Close if already open
 		if (this.sessionDropdown) {
-			this.sessionDropdown.remove();
-			this.sessionDropdown = null;
+			// Animate exit
+			anime({
+				targets: this.sessionDropdown,
+				opacity: [1, 0],
+				translateY: [0, -8],
+				duration: 200,
+				easing: 'easeOutQuad',
+				complete: () => {
+					this.sessionDropdown?.remove();
+					this.sessionDropdown = null;
+				}
+			});
 			return;
 		}
 
@@ -301,8 +421,11 @@ export class DiscoverView extends ItemView {
 		const sessions = this.sessionManager.getRecentSessions();
 		const currentSessionId = this.chatService.getCurrentSessionId();
 
+		const items: HTMLElement[] = [];
+
 		if (sessions.length === 0) {
-			this.sessionDropdown.createEl('div', { cls: 'vp-session-empty', text: 'No sessions yet' });
+			const emptyEl = this.sessionDropdown.createEl('div', { cls: 'vp-session-empty', text: 'No sessions yet' });
+			items.push(emptyEl);
 		} else {
 			for (const session of sessions) {
 				const item = this.sessionDropdown.createEl('div', { cls: 'vp-session-item' });
@@ -321,9 +444,23 @@ export class DiscoverView extends ItemView {
 
 				item.addEventListener('click', () => {
 					this.loadSession(session.id);
-					this.sessionDropdown?.remove();
-					this.sessionDropdown = null;
+					// Animated close
+					anime({
+						targets: this.sessionDropdown,
+						opacity: [1, 0],
+						duration: 150,
+						easing: 'easeOutQuad',
+						complete: () => {
+							this.sessionDropdown?.remove();
+							this.sessionDropdown = null;
+						}
+					});
 				});
+
+				// Set initial state for stagger animation
+				item.style.opacity = '0';
+				item.style.transform = 'translateX(-5px)';
+				items.push(item);
 			}
 		}
 
@@ -332,12 +469,46 @@ export class DiscoverView extends ItemView {
 		this.sessionDropdown.style.top = `${rect.top + 40}px`;
 		this.sessionDropdown.style.left = `${rect.left + 150}px`;
 
+		// Set initial state for dropdown
+		this.sessionDropdown.style.opacity = '0';
+		this.sessionDropdown.style.transform = 'translateY(-8px)';
+
+		// Animate dropdown entry
+		anime({
+			targets: this.sessionDropdown,
+			opacity: [0, 1],
+			translateY: [-8, 0],
+			duration: 250,
+			easing: 'easeOutQuad'
+		});
+
+		// Stagger animate items
+		if (items.length > 0) {
+			anime({
+				targets: items,
+				opacity: [0, 1],
+				translateX: [-5, 0],
+				duration: 200,
+				delay: anime.stagger(30, { start: 100 }),
+				easing: 'easeOutQuad'
+			});
+		}
+
 		// Close on outside click
 		const closeHandler = (e: MouseEvent) => {
 			if (this.sessionDropdown && !this.sessionDropdown.contains(e.target as Node)) {
-				this.sessionDropdown.remove();
-				this.sessionDropdown = null;
-				document.removeEventListener('click', closeHandler);
+				anime({
+					targets: this.sessionDropdown,
+					opacity: [1, 0],
+					translateY: [0, -8],
+					duration: 200,
+					easing: 'easeOutQuad',
+					complete: () => {
+						this.sessionDropdown?.remove();
+						this.sessionDropdown = null;
+						document.removeEventListener('click', closeHandler);
+					}
+				});
 			}
 		};
 		setTimeout(() => document.addEventListener('click', closeHandler), 0);

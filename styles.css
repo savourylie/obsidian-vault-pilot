@@ -53,12 +53,21 @@
 	color: var(--text-normal);
 	cursor: pointer;
 	font-size: var(--font-ui-smaller);
+	transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vp-btn:active {
+	transform: scale(0.98);
 }
 
 .vp-btn--primary {
 	background: var(--interactive-accent);
 	color: var(--text-on-accent);
 	border-color: var(--interactive-accent);
+}
+
+.vp-btn--primary:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .vp-results {
@@ -283,6 +292,15 @@
 	min-height: 250px;
 }
 
+/* VaultPilot — Animation Performance */
+
+.vp-chat-message,
+.vp-result,
+.vp-session-dropdown,
+.vp-session-item {
+	will-change: transform, opacity;
+}
+
 .vp-chat-header h5 {
 	margin: 0;
 	font-size: var(--font-ui-small);
@@ -346,6 +364,23 @@
 	word-wrap: break-word;
 }
 
+/* VaultPilot — Typing Indicator */
+
+.vp-typing-indicator {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+	padding: 8px 12px;
+}
+
+.vp-typing-dot {
+	width: 6px;
+	height: 6px;
+	background: var(--text-muted);
+	border-radius: 50%;
+	display: inline-block;
+}
+
 .vp-chat-input-container {
 	display: flex;
 	gap: 6px;
@@ -389,12 +424,17 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	transition: background 0.1s ease;
+	transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease;
 }
 
 .vp-icon-btn:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
+	transform: scale(1.1);
+}
+
+.vp-icon-btn:active {
+	transform: scale(0.95);
 }
 
 .vp-icon-btn svg {
@@ -453,4 +493,26 @@
 	text-align: center;
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
+}
+
+/* VaultPilot — Reduced Motion Support */
+
+@media (prefers-reduced-motion: reduce) {
+	.vp-chat-message,
+	.vp-result,
+	.vp-session-dropdown,
+	.vp-session-item,
+	.vp-typing-dot,
+	.vp-icon-btn,
+	.vp-btn {
+		transition: none !important;
+		animation: none !important;
+	}
+
+	.vp-chat-message,
+	.vp-result,
+	.vp-session-dropdown,
+	.vp-session-item {
+		will-change: auto;
+	}
 }
