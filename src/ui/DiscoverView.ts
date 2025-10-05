@@ -62,7 +62,7 @@ export class DiscoverView extends ItemView {
 
 		const header = container.createEl('header', { cls: 'vp-header' });
 		const titleRow = header.createEl('div', { cls: 'vp-title-row' });
-		titleRow.createEl('h4', { text: 'Discover' });
+		titleRow.createEl('h4', { cls: 'vp-brand-title', text: 'VaultPilot' });
 
 		// Add session controls
 		if (this.sessionManager) {
