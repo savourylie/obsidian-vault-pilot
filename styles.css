@@ -417,7 +417,7 @@
 	border-radius: var(--vp-radius-md);
 	background: var(--background-secondary);
 	min-height: 260px;
-	max-height: 520px;
+	flex: 1;
 }
 
 .vp-chat-messages {
