@@ -32,6 +32,10 @@ export class DiscoverView extends ItemView {
 	private atMentionSelectedIndex: number = 0;
 	private atMentionFiles: TFile[] = [];
 	private atMentionQuery: string | null = null;
+	private resultsSection: HTMLElement | null = null;
+	private relatedNotesCollapsed: boolean = false;
+	private resultsScrollEl: HTMLElement | null = null;
+	private collapseBtn: HTMLElement | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -106,16 +110,52 @@ export class DiscoverView extends ItemView {
 		}
 
 		const body = container.createEl('div', { cls: 'vp-body' });
-		const resultsSection = body.createEl('section', { cls: 'vp-section vp-section--results' });
-		const resultsHeader = resultsSection.createEl('div', { cls: 'vp-section-header' });
-		resultsHeader.createEl('h5', { text: 'Related Notes' });
-		resultsHeader.createEl('p', {
+		this.resultsSection = body.createEl('section', { cls: 'vp-section vp-section--results' });
+		const resultsHeader = this.resultsSection.createEl('div', { cls: 'vp-section-header' });
+
+		// Header content wrapper
+		const headerContent = resultsHeader.createEl('div', { cls: 'vp-section-header__content' });
+		headerContent.createEl('h5', { text: 'Related Notes' });
+		headerContent.createEl('p', {
 			cls: 'vp-section-subtitle',
 			text: 'Surface serendipitous connections from your vault.',
 		});
 
-		this.contentEl = resultsSection.createEl('div', { cls: 'vp-results-scroll' });
+		// Collapse/expand button
+		this.collapseBtn = resultsHeader.createEl('button', {
+			cls: 'vp-icon-btn vp-collapse-btn',
+			attr: { 'aria-label': 'Collapse Related Notes' }
+		});
+		setIcon(this.collapseBtn, 'chevron-up');
+		this.collapseBtn.addEventListener('click', () => this.toggleRelatedNotesCollapse());
+
+		this.resultsScrollEl = this.resultsSection.createEl('div', { cls: 'vp-results-scroll' });
+		this.contentEl = this.resultsScrollEl;
 		this.resultsEl = this.contentEl.createEl('div', { cls: 'vp-results-list' });
+
+		// Load collapsed state from localStorage
+		try {
+			const savedState = localStorage.getItem('vp-related-notes-collapsed');
+				if (savedState === 'true') {
+					this.relatedNotesCollapsed = true;
+					// Apply collapsed state immediately (without animation on initial load)
+					// Only hide the scroll container, keep header visible
+					if (this.resultsScrollEl) {
+						this.resultsScrollEl.style.height = '0px';
+						this.resultsScrollEl.style.overflow = 'hidden';
+						this.resultsScrollEl.style.flex = '0 0 auto';
+					}
+					if (this.resultsSection) {
+						this.resultsSection.style.flex = '0 0 auto';
+					}
+					if (this.collapseBtn) {
+						setIcon(this.collapseBtn, 'chevron-down');
+						this.collapseBtn.setAttribute('aria-label', 'Expand Related Notes');
+					}
+				}
+		} catch (e) {
+			console.warn('Failed to load Related Notes collapsed state:', e);
+		}
 
 		// Add chat UI at the bottom
 		this.createChatUI(body);
@@ -262,6 +302,79 @@ export class DiscoverView extends ItemView {
 		const target = file.basename || path;
 		md.editor.replaceSelection(`[[${target}]]`);
 	}
+
+	/**
+	 * Toggle collapse/expand state of Related Notes section with smooth animations.
+	 * Only collapses the content area, keeping the header visible.
+	 */
+	private toggleRelatedNotesCollapse() {
+		this.relatedNotesCollapsed = !this.relatedNotesCollapsed;
+
+		// Save state to localStorage
+		try {
+			localStorage.setItem('vp-related-notes-collapsed', String(this.relatedNotesCollapsed));
+		} catch (e) {
+			console.warn('Failed to save Related Notes collapsed state:', e);
+		}
+
+		// Update icon and aria-label
+		if (this.collapseBtn) {
+			setIcon(this.collapseBtn, this.relatedNotesCollapsed ? 'chevron-down' : 'chevron-up');
+			this.collapseBtn.setAttribute('aria-label',
+				this.relatedNotesCollapsed ? 'Expand Related Notes' : 'Collapse Related Notes'
+			);
+		}
+
+		if (!this.resultsScrollEl) return;
+
+		// Animate collapse/expand - only the scroll container, not the entire section
+			if (this.relatedNotesCollapsed) {
+				// Collapse: capture current height and set as explicit height, then animate to 0
+				const currentHeight = this.resultsScrollEl.offsetHeight;
+				this.resultsScrollEl.style.height = currentHeight + 'px'; // Set explicit height for animation
+				this.resultsScrollEl.style.overflow = 'hidden';
+				this.resultsScrollEl.style.flex = '0 0 auto';
+				if (this.resultsSection) {
+					this.resultsSection.style.flex = '0 0 auto';
+				}
+
+				anime({
+					targets: this.resultsScrollEl,
+					height: '0px',
+					duration: 350,
+				easing: 'easeInOutCubic',
+			});
+			} else {
+				// Expand: measure target height, then animate from 0
+				this.resultsScrollEl.style.flex = '0 0 auto';
+				this.resultsScrollEl.style.overflow = 'hidden';
+				this.resultsScrollEl.style.height = ''; // remove inline height to measure content
+				const targetHeight = this.resultsScrollEl.scrollHeight;
+				if (this.resultsSection) {
+					this.resultsSection.style.flex = '0 0 auto';
+				}
+
+				// Reset to 0 for animation start
+				this.resultsScrollEl.style.height = '0px';
+
+				anime({
+					targets: this.resultsScrollEl,
+					height: targetHeight + 'px',
+					duration: 350,
+					easing: 'easeInOutCubic',
+					complete: () => {
+						if (this.resultsScrollEl) {
+							this.resultsScrollEl.style.height = ''; // Clear height to restore flex behavior
+							this.resultsScrollEl.style.overflow = '';
+							this.resultsScrollEl.style.flex = ''; // Revert to stylesheet flex sizing
+						}
+						if (this.resultsSection) {
+							this.resultsSection.style.flex = ''; // Restore default flex ratio
+						}
+					}
+				});
+			}
+		}
 
 	private createChatUI(parent: HTMLElement) {
 		this.chatContainer = parent.createEl('section', { cls: 'vp-section vp-section--chat' });
