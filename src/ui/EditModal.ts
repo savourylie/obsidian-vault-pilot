@@ -1,9 +1,11 @@
-import { App, Modal, TFile } from 'obsidian';
+import { App, Modal, TFile, requestUrl } from 'obsidian';
 
 export interface EditModalOptions {
 	selection: string;
 	file: TFile;
 	ollamaUrl?: string;
+	provider?: 'ollama' | 'lmstudio';
+	lmStudioUrl?: string;
 	onSubmit: (instruction: string, model: string) => Promise<void>;
 	// Optional custom presets supplied by settings
 	presets?: Record<string, string>;
@@ -183,15 +185,49 @@ export class EditModal extends Modal {
 	}
 
 	private async loadModels() {
-		const baseUrl = (this.options.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
+		const provider = this.options.provider || 'ollama';
 		const fallback = ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b'];
 		let models: string[] = [];
 		try {
-			const resp = await fetch(`${baseUrl}/api/tags`);
-			if (resp.ok) {
-				const data = await resp.json();
-				if (Array.isArray(data?.models)) {
-					models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+			if (provider === 'lmstudio') {
+				const baseUrl = (this.options.lmStudioUrl || 'http://localhost:1234').replace(/\/$/, '');
+				let text: string | null = null;
+				try {
+					const r: any = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
+					text = r?.text ?? (r?.json ? JSON.stringify(r.json) : r?.data) ?? null;
+				} catch (_e) {
+					try {
+						const resp = await fetch(`${baseUrl}/v1/models`);
+						if (resp.ok) text = await resp.text();
+					} catch {}
+				}
+
+				if (text) {
+					let data: any = null;
+					try { data = JSON.parse(text); } catch {
+						const start = text.indexOf('{');
+						const end = text.lastIndexOf('}');
+						if (start !== -1 && end !== -1 && end > start) {
+							try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
+						}
+					}
+					const arr: any[] = Array.isArray(data?.data)
+						? data.data
+						: Array.isArray(data?.models)
+							? data.models
+							: Array.isArray(data)
+								? data
+								: [];
+					models = arr.map((m: any) => (typeof m === 'string' ? m : (m?.id || m?.name || m?.model))).filter(Boolean);
+				}
+			} else {
+				const baseUrl = (this.options.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
+				const resp = await fetch(`${baseUrl}/api/tags`);
+				if (resp.ok) {
+					const data = await resp.json();
+					if (Array.isArray(data?.models)) {
+						models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+					}
 				}
 			}
 		} catch (_) {}

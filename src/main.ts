@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, MarkdownView, Notice, Editor, TFile, EditorPosition } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, MarkdownView, Notice, Editor, TFile, EditorPosition, requestUrl } from 'obsidian';
 import { DiscoverView, VIEW_TYPE_DISCOVER } from './ui/DiscoverView';
 import { IndexingService, AnySerializedIndex } from './services/IndexingService';
 import { RetrievalService } from './services/RetrievalService';
@@ -6,7 +6,7 @@ import { EditModal } from './ui/EditModal';
 import { TagSuggestionModal } from './ui/TagSuggestionModal';
 import { suggestTags, extractInlineTags, extractFrontmatterTags, mergeTagsIntoContent } from './services/TaggingService';
 import { SuggestionCallout } from './ui/SuggestionCallout';
-import { OllamaAdapter } from './llm/OllamaAdapter';
+import { createAdapter } from './llm/adapterFactory';
 import { ContextAssembler } from './services/ContextAssembler';
 import { SessionManager } from './services/SessionManager';
 import { ChatSessionsData } from './types/chat';
@@ -20,7 +20,9 @@ interface QuickActionsConfig {
 }
 
 interface SerendipityPluginSettings {
+	provider: 'ollama' | 'lmstudio';
 	ollamaUrl: string;
+	lmStudioUrl: string;
 	maxPromptTokens: number;
 	reservedResponseTokens: number;
 	recentMessagesToKeep: number;
@@ -40,7 +42,9 @@ interface SerendipityPluginSettings {
 }
 
 const DEFAULT_SETTINGS: SerendipityPluginSettings = {
+	provider: 'ollama',
 	ollamaUrl: 'http://localhost:11434',
+	lmStudioUrl: 'http://localhost:1234',
 	maxPromptTokens: 8192,
 	reservedResponseTokens: 512,
 	recentMessagesToKeep: 6,
@@ -103,7 +107,9 @@ export default class SerendipityPlugin extends Plugin {
 					recentMessagesToKeep: this.settings.recentMessagesToKeep,
 					minRecentMessagesToKeep: this.settings.minRecentMessagesToKeep,
 				},
-				this.settings.defaultChatModel
+				this.settings.defaultChatModel,
+				this.settings.provider,
+				this.settings.lmStudioUrl
 			)
 		);
 
@@ -176,6 +182,12 @@ export default class SerendipityPlugin extends Plugin {
 
 				let suggestions: string[] = [];
 				try {
+					const adapter = createAdapter({
+						provider: this.settings.provider || 'ollama',
+						ollamaUrl: this.settings.ollamaUrl,
+						lmStudioUrl: this.settings.lmStudioUrl,
+						defaultModel: model,
+					});
 					suggestions = await suggestTags(this.app, content, {
 						useLLM,
 						ollamaUrl: this.settings.ollamaUrl,
@@ -183,10 +195,18 @@ export default class SerendipityPlugin extends Plugin {
 						minSuggestions: min,
 						maxSuggestions: max,
 						indexStats: this.indexingService,
+						llmAdapter: adapter,
 					}, existing);
 					console.log('VaultPilot: Suggestions returned =', suggestions);
 				} catch (err) {
 					console.error('VaultPilot: suggestTags error', err);
+					if (useLLM) {
+						const provider = this.settings.provider || 'ollama';
+						const base = provider === 'lmstudio'
+							? 'Could not connect to LM Studio. Using local fallback.'
+							: 'Could not connect to Ollama. Using local fallback.';
+						new Notice(`⚠️ ${base}`);
+					}
 				}
 
 				if (!suggestions || suggestions.length === 0) {
@@ -429,6 +449,8 @@ export default class SerendipityPlugin extends Plugin {
 			selection,
 			file,
 			ollamaUrl: this.settings.ollamaUrl,
+			provider: this.settings.provider,
+			lmStudioUrl: this.settings.lmStudioUrl,
 			presets: this.settings.quickActions,
 			defaultModel: this.settings.defaultEditModel,
 			onSubmit: async (instruction, model) => {
@@ -456,10 +478,15 @@ export default class SerendipityPlugin extends Plugin {
 			});
 			const prompt = assembler.assembleContext(selection, file, instruction);
 
-			console.log('VaultPilot: Prompt assembled, calling Ollama...');
+			console.log('VaultPilot: Prompt assembled, calling provider...', this.settings.provider);
 
-			// Stream response from Ollama
-			const adapter = new OllamaAdapter(this.settings.ollamaUrl);
+			// Stream response via selected provider
+			const adapter = createAdapter({
+				provider: this.settings.provider || 'ollama',
+				ollamaUrl: this.settings.ollamaUrl,
+				lmStudioUrl: this.settings.lmStudioUrl,
+				defaultModel: this.settings.defaultEditModel,
+			});
 			const chunks: string[] = [];
 
 			await adapter.stream(prompt, (chunk) => {
@@ -490,7 +517,12 @@ export default class SerendipityPlugin extends Plugin {
 
 			// Check if it's a connection error
 			if (err instanceof Error && (err.message.includes('fetch') || err.message.includes('ECONNREFUSED'))) {
-				new Notice('⚠️ Could not connect to Ollama. Is it running?');
+				const provider = this.settings.provider || 'ollama';
+				if (provider === 'lmstudio') {
+					new Notice('⚠️ Could not connect to LM Studio. Is Local Server enabled?');
+				} else {
+					new Notice('⚠️ Could not connect to Ollama. Is it running?');
+				}
 			} else {
 				new Notice('⚠️ Error generating suggestion: ' + (err instanceof Error ? err.message : 'Unknown error'));
 			}
@@ -552,7 +584,31 @@ class SerendipitySettingTab extends PluginSettingTab {
 
 			containerEl.createEl('h2', {text: 'VaultPilot Settings'});
 
+		// Provider selector
 		new Setting(containerEl)
+			.setName('LLM Provider')
+			.setDesc('Choose which local LLM server to use.')
+			.addDropdown((drop: any) => {
+				drop.addOption('ollama', 'Ollama');
+				drop.addOption('lmstudio', 'LM Studio');
+				drop.setValue(this.plugin.settings.provider || 'ollama');
+				drop.onChange(async (value: string) => {
+					this.plugin.settings.provider = (value === 'lmstudio') ? 'lmstudio' : 'ollama';
+					await this.plugin.saveSettings();
+					// Update visible base URL field
+					try { updateProviderVisibility(); } catch {}
+					// Debounce reload of available models (provider-aware fetch in Ticket 042)
+					if (modelsReloadTimer) window.clearTimeout(modelsReloadTimer);
+					modelsReloadTimer = window.setTimeout(async () => {
+						try {
+							// @ts-ignore - defined within display scope
+							await loadModelsAndPopulate(true);
+						} catch {}
+					}, 600);
+				});
+			});
+
+		const ollamaUrlSetting = new Setting(containerEl)
 			.setName('Ollama Base URL')
 			.setDesc('The base URL for the Ollama API.')
 			.addText(text => text
@@ -572,6 +628,36 @@ class SerendipitySettingTab extends PluginSettingTab {
 						} catch {}
 					}, 600);
 				}));
+
+		// LM Studio Base URL (shown when provider = LM Studio)
+		const lmStudioUrlSetting = new Setting(containerEl)
+			.setName('LM Studio Base URL')
+			.setDesc('Base URL for LM Studio Local Server (OpenAI-compatible).')
+			.addText(text => text
+				.setPlaceholder('http://localhost:1234')
+				.setValue(this.plugin.settings.lmStudioUrl || 'http://localhost:1234')
+				.onChange(async (value) => {
+					this.plugin.settings.lmStudioUrl = value;
+					await this.plugin.saveSettings();
+					// Debounce reload of available models for dropdowns
+					if (modelsReloadTimer) {
+						window.clearTimeout(modelsReloadTimer);
+					}
+					modelsReloadTimer = window.setTimeout(async () => {
+						try {
+							// @ts-ignore - defined within display scope
+							await loadModelsAndPopulate(true);
+						} catch {}
+					}, 600);
+				}));
+
+		const updateProviderVisibility = () => {
+			const isLM = this.plugin.settings.provider === 'lmstudio';
+			(ollamaUrlSetting as any)?.settingEl && ((ollamaUrlSetting as any).settingEl.style.display = isLM ? 'none' : '');
+			(lmStudioUrlSetting as any)?.settingEl && ((lmStudioUrlSetting as any).settingEl.style.display = isLM ? '' : 'none');
+		};
+
+		updateProviderVisibility();
 
 		containerEl.createEl('h3', {text: 'Chat Token Window Settings'});
 
@@ -650,10 +736,18 @@ class SerendipitySettingTab extends PluginSettingTab {
 
 		const showModelsWarning = (el: HTMLElement) => {
 			el.empty();
-			const note = el.createEl('div', { text: 'Could not load models from Ollama. ' });
-			note.appendText('Install or start Ollama: ');
-			note.createEl('a', { text: 'Download Ollama', attr: { href: 'https://ollama.com/download' } });
-			note.addClass('setting-item-description');
+			const isLM = (this.plugin.settings.provider === 'lmstudio');
+			if (isLM) {
+				const note = el.createEl('div', { text: 'Could not load models from LM Studio. ' });
+				note.appendText('Enable the Local Server (OpenAI-compatible) in LM Studio: ');
+				note.createEl('a', { text: 'LM Studio', attr: { href: 'https://lmstudio.ai' } });
+				note.addClass('setting-item-description');
+			} else {
+				const note = el.createEl('div', { text: 'Could not load models from Ollama. ' });
+				note.appendText('Install or start Ollama: ');
+				note.createEl('a', { text: 'Download Ollama', attr: { href: 'https://ollama.com/download' } });
+				note.addClass('setting-item-description');
+			}
 		};
 
 		const clearWarning = (el: HTMLElement) => { el.empty(); };
@@ -762,9 +856,13 @@ class SerendipitySettingTab extends PluginSettingTab {
 		};
 
 		const loadModelsAndPopulate = async (forceReload?: boolean) => {
-			const baseUrl = (this.plugin.settings.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
+			const provider = this.plugin.settings.provider || 'ollama';
+			const baseUrlRaw = provider === 'lmstudio'
+				? (this.plugin.settings.lmStudioUrl || 'http://localhost:1234')
+				: (this.plugin.settings.ollamaUrl || 'http://localhost:11434');
+			const baseUrl = baseUrlRaw.replace(/\/$/, '');
 			const cache = (this.plugin as any)._modelsCache;
-			if (!forceReload && cache && cache.baseUrl === baseUrl && Array.isArray(cache.models) && cache.models.length > 0) {
+			if (!forceReload && cache && cache.provider === provider && cache.baseUrl === baseUrl && Array.isArray(cache.models) && cache.models.length > 0) {
 				populateFromModels(cache.models, true);
 				return;
 			}
@@ -787,19 +885,55 @@ class SerendipitySettingTab extends PluginSettingTab {
 			let models: string[] = [];
 			let ok = false;
 			try {
-				const resp = await fetch(`${baseUrl}/api/tags`);
-				if (resp.ok) {
-					const data = await resp.json();
-					if (Array.isArray(data?.models)) {
-						models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+				if (provider === 'lmstudio') {
+					// Prefer Obsidian requestUrl to avoid CORS issues
+					let text: string | null = null;
+					try {
+						const r = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
+						text = (r as any)?.text ?? r?.json ? JSON.stringify((r as any).json) : (r as any)?.data ?? null;
+					} catch (_err) {
+						// Fallback to fetch
+						try {
+							const resp = await fetch(`${baseUrl}/v1/models`);
+							if (resp.ok) text = await resp.text();
+						} catch {}
+					}
+					if (text) {
+						let data: any = null;
+						try { data = JSON.parse(text); } catch {
+							const start = text.indexOf('{');
+							const end = text.lastIndexOf('}');
+							if (start !== -1 && end !== -1 && end > start) {
+								try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
+							}
+						}
+						const arr: any[] = Array.isArray((data as any)?.data)
+							? (data as any).data
+							: Array.isArray((data as any)?.models)
+								? (data as any).models
+								: Array.isArray(data)
+									? (data as any)
+									: [];
+						models = arr
+							.map((m: any) => typeof m === 'string' ? m : (m?.id || m?.name || m?.model))
+							.filter(Boolean);
 						ok = models.length > 0;
+					}
+				} else {
+					const resp = await fetch(`${baseUrl}/api/tags`);
+					if (resp.ok) {
+						const data = await resp.json();
+						if (Array.isArray(data?.models)) {
+							models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+							ok = models.length > 0;
+						}
 					}
 				}
 			} catch (_e) {}
 
 			populateFromModels(models, ok);
 			if (ok) {
-				(this.plugin as any)._modelsCache = { baseUrl, models };
+				(this.plugin as any)._modelsCache = { provider, baseUrl, models };
 			}
 			setReloadButtonsLoading(false);
 		};

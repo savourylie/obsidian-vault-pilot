@@ -1,7 +1,7 @@
-import { ItemView, WorkspaceLeaf, MarkdownView, TFile, App, setIcon, MarkdownRenderer } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownView, TFile, App, setIcon, MarkdownRenderer, requestUrl } from 'obsidian';
 import { RetrievalService } from '../services/RetrievalService';
 import { ChatService, ChatServiceOptions } from '../services/ChatService';
-import { OllamaAdapter } from '../llm/OllamaAdapter';
+import { createAdapter } from '../llm/adapterFactory';
 import { SessionManager } from '../services/SessionManager';
 import { NoteSearchModal } from './NoteSearchModal';
 import anime from 'animejs';
@@ -24,6 +24,8 @@ export class DiscoverView extends ItemView {
 	private onSessionSave: (() => Promise<void>) | null = null;
 	private typingIndicator: HTMLElement | null = null;
 	private ollamaUrl: string = 'http://localhost:11434';
+	private lmStudioUrl: string = 'http://localhost:1234';
+	private provider: 'ollama' | 'lmstudio' = 'ollama';
 	private defaultChatModel: string | null = null;
 	private contextChipsContainer: HTMLElement | null = null;
 	private atMentionPopover: HTMLElement | null = null;
@@ -38,15 +40,24 @@ export class DiscoverView extends ItemView {
 		sessionManager?: SessionManager,
 		onSessionSave?: () => Promise<void>,
 		chatOptions?: ChatServiceOptions,
-		defaultChatModel?: string
+		defaultChatModel?: string,
+		provider?: 'ollama' | 'lmstudio',
+		lmStudioUrl?: string
 	) {
 		super(leaf);
 		this.retrieval = retrieval ?? null;
 		this.sessionManager = sessionManager ?? null;
 		this.onSessionSave = onSessionSave ?? null;
 		this.ollamaUrl = ollamaUrl || 'http://localhost:11434';
+		this.lmStudioUrl = lmStudioUrl || 'http://localhost:1234';
+		this.provider = provider || 'ollama';
 		this.defaultChatModel = defaultChatModel || null;
-		const adapter = new OllamaAdapter(this.ollamaUrl);
+		const adapter = createAdapter({
+			provider: this.provider,
+			ollamaUrl: this.ollamaUrl,
+			lmStudioUrl: this.lmStudioUrl,
+			defaultModel: this.defaultChatModel || undefined,
+		});
 		this.chatService = new ChatService(adapter, chatOptions);
 
 		// Wire session manager to chat service
@@ -362,16 +373,51 @@ export class DiscoverView extends ItemView {
 	private async loadAvailableModels() {
 		const fallback = ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b'];
 		let models: string[] = [];
+		const provider = this.provider || 'ollama';
 		try {
-			const resp = await fetch(`${this.ollamaUrl.replace(/\/$/, '')}/api/tags`);
-			if (resp.ok) {
-				const data = await resp.json();
-				if (Array.isArray(data?.models)) {
-					models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+			if (provider === 'lmstudio') {
+				const baseUrl = this.lmStudioUrl.replace(/\/$/, '');
+				let text: string | null = null;
+				try {
+					const r = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
+					text = (r as any)?.text ?? r?.json ? JSON.stringify((r as any).json) : (r as any)?.data ?? null;
+				} catch (_err) {
+					try {
+						const resp = await fetch(`${baseUrl}/v1/models`);
+						if (resp.ok) text = await resp.text();
+					} catch {}
+				}
+				if (text) {
+					let data: any = null;
+					try { data = JSON.parse(text); } catch {
+						const start = text.indexOf('{');
+						const end = text.lastIndexOf('}');
+						if (start !== -1 && end !== -1 && end > start) {
+							try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
+						}
+					}
+					const arr: any[] = Array.isArray((data as any)?.data)
+						? (data as any).data
+						: Array.isArray((data as any)?.models)
+							? (data as any).models
+							: Array.isArray(data)
+								? (data as any)
+								: [];
+					models = arr
+						.map((m: any) => typeof m === 'string' ? m : (m?.id || m?.name || m?.model))
+						.filter(Boolean);
+				}
+			} else {
+				const resp = await fetch(`${this.ollamaUrl.replace(/\/$/, '')}/api/tags`);
+				if (resp.ok) {
+					const data = await resp.json();
+					if (Array.isArray(data?.models)) {
+						models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
+					}
 				}
 			}
 		} catch (err) {
-			console.warn('Ollama model list fetch failed; using fallback list', err);
+			console.warn(`${provider === 'lmstudio' ? 'LM Studio' : 'Ollama'} model list fetch failed; using fallback list`, err);
 		}
 		if (models.length === 0) models = fallback;
 
@@ -450,7 +496,16 @@ export class DiscoverView extends ItemView {
 			const errorContent = errorMsg.querySelector('.vp-chat-message-content') as HTMLElement;
 			if (errorContent) {
 				errorContent.empty();
-				errorContent.textContent = 'Error: ' + (err instanceof Error ? err.message : 'Unknown error');
+				const msg = (err instanceof Error ? err.message : 'Unknown error') || '';
+				const isConnErr = /fetch|network|failed|ECONN|connection|refused|CORS/i.test(msg);
+				if (isConnErr) {
+					const friendly = this.provider === 'lmstudio'
+						? 'Could not connect to LM Studio. Is Local Server enabled?'
+						: 'Could not connect to Ollama. Is it running?';
+					errorContent.textContent = `⚠️ ${friendly}`;
+				} else {
+					errorContent.textContent = 'Error: ' + (msg || 'Unknown error');
+				}
 			}
 		}
 	}
