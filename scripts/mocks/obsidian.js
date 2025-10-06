@@ -68,6 +68,21 @@ class Modal {
   close() { /* no-op */ }
 }
 
+// Minimal SuggestModal stub (extends Modal)
+class SuggestModal extends Modal {
+  constructor(app) {
+    super(app);
+    this.inputEl = createElement();
+    this.suggestions = [];
+  }
+  setPlaceholder(_text) { return this; }
+  getSuggestions(_query) { return []; }
+  renderSuggestion(_value, _el) {}
+  onChooseSuggestion(_value, _evt) {}
+  open() { return this; }
+  close() { /* no-op */ }
+}
+
 // Helper for simple DOM-like elements used by contentEl
 function createElement() {
   return {
@@ -187,6 +202,7 @@ module.exports = {
   WorkspaceLeaf,
   ItemView,
   Modal,
+  SuggestModal,
   Notice,
   MarkdownRenderer,
   MarkdownView,

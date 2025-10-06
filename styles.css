@@ -1,5 +1,10 @@
 /* VaultPilot — Discover Panel styles */
 
+:root {
+	--vp-slate-100: var(--background-secondary);
+	--vp-slate-200: var(--background-secondary-alt, var(--background-secondary));
+}
+
 .vp-discover {
 	--vp-panel-bg: var(--background-secondary);
 	--vp-section-bg: var(--background-primary);
@@ -66,13 +71,13 @@
 .vp-section--results {
 	flex: 0.6;
 	min-height: 0;
-	background: var(--vp-slate-100);
+	background: var(--vp-slate-100, var(--background-secondary));
 	transition: flex 0.3s ease-in-out;
 }
 
 .vp-section--chat {
 	flex: 1;
-	background: var(--vp-slate-200);
+	background: var(--vp-slate-200, var(--background-secondary-alt, var(--background-secondary)));
 	transition: flex 0.3s ease-in-out;
 }
 
