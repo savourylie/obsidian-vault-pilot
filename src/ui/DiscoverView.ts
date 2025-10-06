@@ -160,11 +160,9 @@ export class DiscoverView extends ItemView {
 		// Add chat UI at the bottom
 		this.createChatUI(body);
 
-		// Load active session
+		// Start a new session on open
 		if (this.sessionManager) {
-			this.chatService.loadActiveSession();
-			this.renderChatHistory();
-			this.renderContextChips();
+			this.createNewSession();
 		}
 
 		this.registerEvents();
