@@ -606,6 +606,8 @@ export class DiscoverView extends ItemView {
 
 				if (!assistantContent) return;
 				accumulatedContent += chunk;
+				// Update data attribute with accumulated content for copy functionality
+				assistantMsg?.setAttribute('data-raw-content', accumulatedContent);
 				this.renderMarkdownContent(assistantContent, accumulatedContent);
 				this.smoothScrollToBottom();
 			});
@@ -639,11 +641,37 @@ export class DiscoverView extends ItemView {
 		if (!this.chatMessagesEl) return document.createElement('div');
 
 		const msgEl = this.chatMessagesEl.createEl('div', { cls: `vp-chat-message vp-chat-message--${role}` });
+
+		// Store raw content in data attribute for copy functionality
+		msgEl.setAttribute('data-raw-content', content);
+
 		const roleLabel = msgEl.createEl('div', { cls: 'vp-chat-message-role' });
 		roleLabel.textContent = role === 'user' ? 'You' : 'Assistant';
 
 		const contentEl = msgEl.createEl('div', { cls: 'vp-chat-message-content' });
 		this.renderMarkdownContent(contentEl, content);
+
+		// Add copy button
+		const copyBtn = msgEl.createEl('button', {
+			cls: 'vp-icon-btn vp-chat-message-copy-btn',
+			attr: { 'aria-label': 'Copy message' }
+		});
+		setIcon(copyBtn, 'copy');
+		copyBtn.addEventListener('click', async () => {
+			try {
+				// Copy the raw content from data attribute
+				const rawContent = msgEl.getAttribute('data-raw-content') || '';
+				await navigator.clipboard.writeText(rawContent);
+
+				// Visual feedback: change to check icon
+				setIcon(copyBtn, 'check');
+				setTimeout(() => {
+					setIcon(copyBtn, 'copy');
+				}, 1000);
+			} catch (err) {
+				console.error('Failed to copy message:', err);
+			}
+		});
 
 		// Animate message entry
 		const translateX = role === 'user' ? -20 : 20;

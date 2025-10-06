@@ -431,6 +431,7 @@
 }
 
 .vp-chat-message {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
@@ -560,6 +561,41 @@
 	border-bottom: 1px solid var(--vp-section-border);
 	padding: 4px 6px;
 	text-align: left;
+}
+
+/* VaultPilot — Message Copy Button */
+
+.vp-chat-message-copy-btn {
+	position: absolute;
+	bottom: -32px;
+	right: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: all 0.2s ease;
+	background: transparent;
+	border-radius: 4px;
+	padding: 4px;
+	color: var(--text-muted);
+}
+
+.vp-chat-message:hover .vp-chat-message-copy-btn {
+	opacity: 0.6;
+	pointer-events: auto;
+}
+
+.vp-chat-message-copy-btn:hover {
+	opacity: 1 !important;
+	background: rgba(0, 0, 0, 0.05);
+	color: var(--text-normal);
+}
+
+.theme-dark .vp-chat-message-copy-btn:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.vp-chat-message-copy-btn svg {
+	width: 16px;
+	height: 16px;
 }
 
 /* VaultPilot — Typing Indicator */
