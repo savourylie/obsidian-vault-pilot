@@ -13,6 +13,7 @@
     "headless:test:chat": "node scripts/chat-window-test.js",
     "headless:test:session": "node scripts/session-model-test.js",
     "headless:test:attachments": "node scripts/headless-test-attachments.js",
+    "headless:test:tagging": "node scripts/tagging-test.js",
     "ui:snap": "playwright test scripts/ui-snapshot --config=playwright.config.ts",
     "ui:install": "playwright install chromium"
   },

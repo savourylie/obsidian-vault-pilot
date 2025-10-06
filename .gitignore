@@ -3,6 +3,7 @@
 
 # Build artifacts
 /main.js
+scripts/.tmp/
 
 # OS-specific
 .DS_Store

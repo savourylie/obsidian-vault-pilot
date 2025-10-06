@@ -3,6 +3,8 @@ import { DiscoverView, VIEW_TYPE_DISCOVER } from './ui/DiscoverView';
 import { IndexingService, AnySerializedIndex } from './services/IndexingService';
 import { RetrievalService } from './services/RetrievalService';
 import { EditModal } from './ui/EditModal';
+import { TagSuggestionModal } from './ui/TagSuggestionModal';
+import { suggestTags, extractInlineTags, extractFrontmatterTags, mergeTagsIntoContent } from './services/TaggingService';
 import { SuggestionCallout } from './ui/SuggestionCallout';
 import { OllamaAdapter } from './llm/OllamaAdapter';
 import { ContextAssembler } from './services/ContextAssembler';
@@ -27,6 +29,14 @@ interface SerendipityPluginSettings {
 	systemPrompt: string;
 	defaultChatModel: string;
 	defaultEditModel: string;
+	// Tag suggestion settings (Ticket 39)
+	tagSuggestions?: {
+		useLLM: boolean;
+		min: number;
+		max: number;
+		confirmBeforeInsert: boolean;
+		modelOverride: string; // empty = use defaultChatModel
+	};
 }
 
 const DEFAULT_SETTINGS: SerendipityPluginSettings = {
@@ -45,6 +55,13 @@ const DEFAULT_SETTINGS: SerendipityPluginSettings = {
 	systemPrompt: 'You are an AI writing assistant for Obsidian. Your task is to help the user edit their note.',
 	defaultChatModel: 'gemma3n:e2b',
 	defaultEditModel: 'gemma3n:e2b',
+	tagSuggestions: {
+		useLLM: true,
+		min: 3,
+		max: 5,
+		confirmBeforeInsert: true,
+		modelOverride: '',
+	},
 }
 
 export default class SerendipityPlugin extends Plugin {
@@ -128,14 +145,89 @@ export default class SerendipityPlugin extends Plugin {
 		});
 		console.log('VaultPilot: ai-edit-selection command registered');
 
-		// Add test command for SuggestionCallout (dev only)
+
+		// Add command: Suggest Hashtags for Current Note
 		this.addCommand({
-			id: 'test-suggestion-callout',
-			name: '[DEV] Test Suggestion Callout',
-			callback: () => {
-				this.testSuggestionCallout();
+			id: 'suggest-hashtags-current-note',
+			name: 'Suggest Hashtags for Current Note',
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'h' }],
+			callback: async () => {
+				console.log('VaultPilot: suggest-hashtags command triggered');
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (!view) {
+					new Notice('No active note found');
+					console.warn('VaultPilot: No active MarkdownView when suggesting hashtags');
+					return;
+				}
+				const editor = view.editor;
+				const content = editor.getValue();
+				console.log('VaultPilot: Note content length =', content?.length ?? 0);
+				const existing = new Set<string>([
+					...extractInlineTags(content),
+					...extractFrontmatterTags(content),
+				]);
+				console.log('VaultPilot: Existing tags found =', Array.from(existing));
+
+				const ts = this.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+				const min = Math.max(1, ts.min || 3);
+				const max = Math.max(min, ts.max || 5);
+				const model = (ts.modelOverride && ts.modelOverride.trim()) ? ts.modelOverride.trim() : this.settings.defaultChatModel;
+				const useLLM = ts.useLLM !== false;
+
+				let suggestions: string[] = [];
+				try {
+					suggestions = await suggestTags(this.app, content, {
+						useLLM,
+						ollamaUrl: this.settings.ollamaUrl,
+						model,
+						minSuggestions: min,
+						maxSuggestions: max,
+					}, existing);
+					console.log('VaultPilot: Suggestions returned =', suggestions);
+				} catch (err) {
+					console.error('VaultPilot: suggestTags error', err);
+				}
+
+				if (!suggestions || suggestions.length === 0) {
+					new Notice('No tag suggestions found');
+					console.warn('VaultPilot: No suggestions generated');
+					return;
+				}
+
+				if (ts.confirmBeforeInsert !== false) {
+					console.log('VaultPilot: Opening TagSuggestionModal with', suggestions.length, 'items');
+					new TagSuggestionModal(this.app, {
+						suggestions,
+						onConfirm: (selected) => {
+							console.log('VaultPilot: Modal confirmed with selected tags =', selected);
+							if (!selected || selected.length === 0) return;
+							const latest = editor.getValue();
+							const res = mergeTagsIntoContent(latest, selected);
+							console.log('VaultPilot: mergeTagsIntoContent changed =', res.changed);
+							if (!res.changed) {
+								new Notice('No new tags to insert');
+								console.log('VaultPilot: Nothing new to insert (all tags already present)');
+								return;
+							}
+							editor.setValue(res.content);
+							new Notice(`Inserted tags: ${selected.join(' ')}`);
+							console.log('VaultPilot: Inserted tags successfully');
+						},
+					}).open();
+				} else {
+					console.log('VaultPilot: Quick insert path (no confirm) with', suggestions.length, 'tags');
+					const latest = editor.getValue();
+					const res = mergeTagsIntoContent(latest, suggestions);
+					if (!res.changed) {
+						new Notice('No new tags to insert');
+						return;
+					}
+					editor.setValue(res.content);
+					new Notice(`Inserted tags: ${suggestions.join(' ')}`);
+				}
 			},
 		});
+
 
 		// Wire vault + metadata events for incremental updates
 		this.registerEvent(this.app.vault.on('create', async (file: any) => {
@@ -449,8 +541,8 @@ class SerendipitySettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		const {containerEl} = this;
+		display(): void {
+			const {containerEl} = this;
 
 		containerEl.empty();
 
@@ -769,6 +861,77 @@ class SerendipitySettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.quickActions.translate)
 				.onChange(async (value) => {
 					this.plugin.settings.quickActions.translate = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Tag Suggestions settings
+		containerEl.createEl('h3', { text: 'Tag Suggestions' });
+
+		new Setting(containerEl)
+			.setName('Use LLM for tag suggestions')
+			.setDesc('Enable LLM-backed tag suggestions; falls back to local keywords when unavailable.')
+			.addToggle((toggle: any) => {
+				toggle.setValue(this.plugin.settings.tagSuggestions?.useLLM !== false);
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+					this.plugin.settings.tagSuggestions.useLLM = !!value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName('Min suggestions')
+			.setDesc('Minimum number of tags to propose (default 3).')
+			.addText((text) => text
+				.setPlaceholder('3')
+				.setValue(String(this.plugin.settings.tagSuggestions?.min ?? 3))
+				.onChange(async (value) => {
+					const n = Math.max(1, parseInt(value || '3', 10) || 3);
+					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+					this.plugin.settings.tagSuggestions.min = n;
+					// Ensure max >= min
+					if ((this.plugin.settings.tagSuggestions.max ?? 5) < n) {
+						this.plugin.settings.tagSuggestions.max = n;
+					}
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Max suggestions')
+			.setDesc('Maximum number of tags to propose (default 5).')
+			.addText((text) => text
+				.setPlaceholder('5')
+				.setValue(String(this.plugin.settings.tagSuggestions?.max ?? 5))
+				.onChange(async (value) => {
+					const curMin = this.plugin.settings.tagSuggestions?.min ?? 3;
+					let n = parseInt(value || '5', 10);
+					if (isNaN(n) || n < curMin) n = curMin;
+					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+					this.plugin.settings.tagSuggestions.max = n;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Confirm before inserting')
+			.setDesc('Show a modal to confirm tags before writing to the note.')
+			.addToggle((toggle: any) => {
+				toggle.setValue(this.plugin.settings.tagSuggestions?.confirmBeforeInsert !== false);
+				toggle.onChange(async (value: boolean) => {
+					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+					this.plugin.settings.tagSuggestions.confirmBeforeInsert = !!value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName('Model override (optional)')
+			.setDesc('Model to use for tag suggestions. Leave empty to use the Default Chat Model.')
+			.addText((text) => text
+				.setPlaceholder('Leave empty for default')
+				.setValue(this.plugin.settings.tagSuggestions?.modelOverride ?? '')
+				.onChange(async (value) => {
+					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+					this.plugin.settings.tagSuggestions.modelOverride = value || '';
 					await this.plugin.saveSettings();
 				}));
 	}

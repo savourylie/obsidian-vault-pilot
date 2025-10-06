@@ -1,35 +1,41 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/` houses TypeScript plugin logic. `src/main.ts` registers the plugin, `src/ui/DiscoverView.ts` drives the Discover panel UI, and shared helpers live alongside feature code.
-- `scripts/` contains dev utilities and headless tests; key mocks sit in `scripts/mocks/obsidian.js`.
-- `docs/` tracks product context and tickets (`docs/tickets/*`). Review relevant ticket before starting work.
-- Root directory stores build artifacts (`main.js`), configuration (`manifest.json`, `tsconfig.json`), and package manifests.
+- `src/` TypeScript plugin code. Entry is `src/main.ts`; Discover panel UI in `src/ui/DiscoverView.ts`; helpers live alongside feature code. New UI components (e.g., `src/ui/NoteSearchModal.ts`).
+- `scripts/` Dev utilities and headless tests; mocks at `scripts/mocks/obsidian.js`.
+- `docs/` Product context and tickets under `docs/tickets/*` — review the relevant ticket before changes.
+- Root: build output `main.js`, configuration (`manifest.json`, `tsconfig.json`), and `package.json`.
 
 ## Build, Test, and Development Commands
-- `npm run dev` — watch-mode bundle with sourcemaps, writing to `main.js`.
-- `npm run build` — production bundle via esbuild; run before publishing.
-- `npm run headless:test` — Node-based smoke test that exercises Discover panel toggling through the mocked Obsidian API.
+- `npm run dev` — esbuild watch; writes `main.js` with inline sourcemaps.
+- `npm run build` — production bundle via esbuild (CJS, target ES2018, external `obsidian`).
+- Headless tests:
+  - `npm run headless:test` — Discover toggle smoke test.
+  - `npm run headless:test:session` — session model.
+  - `npm run headless:test:attachments` — prompt attachments flow.
+- Optional UI snapshot: `npm run ui:install` then `npm run ui:snap`.
 
 ## Coding Style & Naming Conventions
-- Write TypeScript targeting ES2018 with tabs for indentation in `src/*.ts`.
-- Prefer single quotes, `camelCase` identifiers, and `PascalCase` classes; keep functions small and pure.
-- Avoid unrelated refactors or reformatting; add concise comments only when logic is non-obvious.
+- Language: TypeScript targeting ES2018. Indent with tabs in `src/*.ts`.
+- Quotes: single quotes. Names: `camelCase` for vars/functions, `PascalCase` for classes.
+- Keep functions small and pure; add concise comments only for non-obvious logic.
+- Avoid unrelated refactors or reformatting.
 
 ## Testing Guidelines
-- Extend the headless tests in `scripts/headless-test.js`; favour focused PASS/FAIL assertions.
-- Guard interactions with Obsidian workspace APIs (`getRightLeaf`) to prevent null errors before asserting outcomes.
-- Run tests locally before commits; capture output when sharing results.
+- Extend headless tests in `scripts/*.js`; prefer focused PASS/FAIL assertions.
+- Guard Obsidian workspace calls: use `getRightLeaf(true)` to create leaves instead of assuming presence; ensure Discover toggle is idempotent (no duplicate leaves).
+- Run locally before commits and capture output when sharing results.
 
 ## Commit & Pull Request Guidelines
-- Commit in imperative mood (`fix: guard right leaf null in toggle`) and reference ticket IDs from `docs/tickets` when applicable.
-- Pull requests should summarize intent, show before/after behaviour (logs or screenshots when relevant), list verification steps, and link tickets.
+- Commits: imperative mood with scope, e.g., `fix: guard right leaf null in toggle`; reference ticket IDs from `docs/tickets`.
+- PRs: summarize intent, show before/after behavior (logs or screenshots), list verification steps, and link tickets.
 
 ## Security & Configuration Tips
-- Never hardcode secrets; the Ollama base URL is user-configurable and defaults to `http://localhost:11434`.
-- Validate workspace leaves by creating them on demand (`getRightLeaf(true)`) instead of assuming presence.
+- Do not hardcode secrets. Ollama base URL is user-configurable and defaults to `http://localhost:11434`.
+- Validate inputs and workspace state; prefer safe fallbacks over throwing.
 
 ## Agent-Specific Instructions
-- Respect existing style and file structure; do not delete user changes.
-- Keep Discover panel toggles idempotent; ensure repeated commands do not duplicate leaves.
-- Confirm changes with `npm run headless:test` or targeted scripts before handing off.
+- Respect existing structure and style; do not delete user changes.
+- Keep Discover panel toggles idempotent.
+- Confirm changes with `npm run headless:test` or targeted scripts before handoff.
+
