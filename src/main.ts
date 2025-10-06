@@ -182,6 +182,7 @@ export default class SerendipityPlugin extends Plugin {
 						model,
 						minSuggestions: min,
 						maxSuggestions: max,
+						indexStats: this.indexingService,
 					}, existing);
 					console.log('VaultPilot: Suggestions returned =', suggestions);
 				} catch (err) {

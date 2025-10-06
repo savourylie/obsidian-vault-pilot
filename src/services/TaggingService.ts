@@ -124,9 +124,22 @@ function tokenize(text: string): string[] {
 		.filter((t) => t && t.length > 2);
 }
 
+// Stopwords aligned with IndexingService to avoid noisy tags
+const STOPWORDS = new Set([
+	'the','a','an','and','or','but','if','then','else','for','on','in','to','of','at','by','with','is','it','this','that','these','those','be','as','are','was','were','from','has','had','have','not','no','can','could','should','would','will','just','so','we','you','i','they','he','she','them','his','her','their','our','your'
+]);
+
+function tokenizeWithoutStop(text: string): string[] {
+	return (text || '')
+		.toLowerCase()
+		.replace(/[`_*#>\-\[\](){}~:;\"'.,!?\/\\]|\d+/g, ' ')
+		.split(/\s+/)
+		.filter((t) => t && t.length > 2 && !STOPWORDS.has(t));
+}
+
 function keywordFallback(content: string, vaultTags: Set<string>, existing: Set<string>, min: number, max: number): string[] {
 	const freq = new Map<string, number>();
-	for (const t of tokenize(content)) freq.set(t, (freq.get(t) || 0) + 1);
+	for (const t of tokenizeWithoutStop(content)) freq.set(t, (freq.get(t) || 0) + 1);
 	const ordered = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).map(([w]) => w);
 	const candidates: string[] = [];
 	for (const w of ordered) {
@@ -153,6 +166,48 @@ function keywordFallback(content: string, vaultTags: Set<string>, existing: Set<
 	return final;
 }
 
+function tfidfFallback(
+	content: string,
+	indexStats: { getDocCount(): number; getDF(term: string): number },
+	vaultTags: Set<string>,
+	existing: Set<string>,
+	min: number,
+	max: number
+): string[] {
+	const N = Math.max(1, indexStats.getDocCount?.() || 1);
+	const tf = new Map<string, number>();
+	for (const t of tokenizeWithoutStop(content)) tf.set(t, (tf.get(t) || 0) + 1);
+	const scores: Array<{ term: string; score: number }> = [];
+	for (const [term, tfv] of tf.entries()) {
+		const df = Math.max(1, indexStats.getDF?.(term) || 1);
+		const idf = Math.log(1 + N / df);
+		scores.push({ term, score: tfv * idf });
+	}
+	scores.sort((a, b) => b.score - a.score);
+	const rawTerms = scores.map(s => s.term);
+	const candidates: string[] = [];
+	for (const w of rawTerms) {
+		const tag = normalizeTag(w);
+		if (!tag) continue;
+		if (existing.has(tag)) continue;
+		candidates.push(tag);
+		if (candidates.length >= max * 2) break;
+	}
+	const preferred: string[] = [];
+	const others: string[] = [];
+	for (const t of candidates) (vaultTags.has(t) ? preferred : others).push(t);
+	let final = Array.from(new Set(preferred.concat(others)));
+	if (final.length > max) final = final.slice(0, max);
+	if (final.length < min) {
+		for (const t of vaultTags) {
+			if (existing.has(t) || final.includes(t)) continue;
+			final.push(t);
+			if (final.length >= min) break;
+		}
+	}
+	return final;
+}
+
 function parseLLMTags(raw: string): string[] {
 	// Only accept explicit hashtags from the model output; ignore plain words
 	const matches = (raw || '').match(/#[A-Za-z0-9][\w-]*/g) || [];
@@ -168,6 +223,8 @@ export interface TagSuggestOptions {
 	maxSuggestions?: number;
 	// Optional injection for testing or custom providers
 	llmAdapter?: LLMAdapter;
+	// Optional TF-IDF stats (pass IndexingService)
+	indexStats?: { getDocCount(): number; getDF(term: string): number };
 }
 
 /**
@@ -232,8 +289,14 @@ export async function suggestTags(
 
 	// Fallback if LLM is off, failed, or produced too few valid hashtags
 	if (candidates.length < min) {
-		candidates = keywordFallback(content || '', vaultSet, existing, min, max);
-		console.log('VaultPilot: Fallback produced hashtag count =', candidates.length);
+		if (options.indexStats && (options.indexStats.getDocCount?.() || 0) > 0) {
+			candidates = tfidfFallback(content || '', options.indexStats, vaultSet, existing, min, max);
+			console.log('VaultPilot: TF-IDF fallback produced hashtag count =', candidates.length);
+		}
+		if (candidates.length < min) {
+			candidates = keywordFallback(content || '', vaultSet, existing, min, max);
+			console.log('VaultPilot: Keyword fallback produced hashtag count =', candidates.length);
+		}
 	}
 
 	// Exclude existing tags and cap
