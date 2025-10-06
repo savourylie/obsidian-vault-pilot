@@ -11,6 +11,18 @@ export class SessionManager {
 			sessions: {},
 			activeSessionId: null,
 		};
+
+		// Migrate legacy sessions: ensure contextFiles is initialized
+		for (const sessionId in this.data.sessions) {
+			const session = this.data.sessions[sessionId];
+			if (!session.contextFiles) {
+				session.contextFiles = [];
+				// Migrate singular contextFile if present
+				if (session.contextFile) {
+					session.contextFiles.push(session.contextFile);
+				}
+			}
+		}
 	}
 
 	/**
@@ -28,6 +40,7 @@ export class SessionManager {
 			lastActiveAt: now,
 			messages: [],
 			contextFile,
+			contextFiles: [],
 		};
 
 		this.data.sessions[id] = session;
@@ -101,6 +114,63 @@ export class SessionManager {
 
 		if (this.data.activeSessionId === sessionId) {
 			this.data.activeSessionId = null;
+		}
+	}
+
+	/**
+	 * Add context files to a session (deduplicates).
+	 */
+	addContextFiles(sessionId: string, paths: string[]): void {
+		const session = this.data.sessions[sessionId];
+		if (!session) {
+			return;
+		}
+
+		// Deduplicate: only add paths not already present
+		const existingSet = new Set(session.contextFiles);
+		for (const path of paths) {
+			if (!existingSet.has(path)) {
+				session.contextFiles.push(path);
+				existingSet.add(path);
+			}
+		}
+
+		session.lastActiveAt = Date.now();
+	}
+
+	/**
+	 * Remove a context file from a session.
+	 */
+	removeContextFile(sessionId: string, path: string): void {
+		const session = this.data.sessions[sessionId];
+		if (!session) {
+			return;
+		}
+
+		session.contextFiles = session.contextFiles.filter(p => p !== path);
+		session.lastActiveAt = Date.now();
+	}
+
+	/**
+	 * Rename a context file across all sessions.
+	 */
+	renameContextFile(oldPath: string, newPath: string): void {
+		for (const sessionId in this.data.sessions) {
+			const session = this.data.sessions[sessionId];
+			const index = session.contextFiles.indexOf(oldPath);
+			if (index !== -1) {
+				session.contextFiles[index] = newPath;
+			}
+		}
+	}
+
+	/**
+	 * Delete a context file from all sessions.
+	 */
+	deleteContextFile(path: string): void {
+		for (const sessionId in this.data.sessions) {
+			const session = this.data.sessions[sessionId];
+			session.contextFiles = session.contextFiles.filter(p => p !== path);
 		}
 	}
 

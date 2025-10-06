@@ -152,10 +152,24 @@ export default class SerendipityPlugin extends Plugin {
 			if (!file) return;
 			this.indexingService.removeFromIndex(file);
 			await this.saveIndex();
+
+			// Remove deleted file from all session context files
+			this.sessionManager.deleteContextFile(file.path);
+			await this.saveSessions();
+
+			// Refresh chips in all open DiscoverViews
+			this.refreshAllDiscoverViewChips();
 		}));
 		this.registerEvent(this.app.vault.on('rename', async (file: any, oldPath: string) => {
 			if (oldPath) {
 				this.indexingService.removeFromIndex(oldPath);
+
+				// Update context file paths in all sessions
+				this.sessionManager.renameContextFile(oldPath, file.path);
+				await this.saveSessions();
+
+				// Refresh chips in all open DiscoverViews
+				this.refreshAllDiscoverViewChips();
 			}
 			if (file?.extension === 'md') {
 				await this.indexingService.updateIndex(file);
@@ -166,6 +180,23 @@ export default class SerendipityPlugin extends Plugin {
 			if (file?.extension !== 'md') return;
 			await this.indexingService.updateIndex(file);
 			await this.saveIndex();
+		}));
+
+		// Register file-menu event for "Add to Assistant Context"
+		this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => {
+			// Only show for markdown files
+			if (!file || (file as TFile).extension !== 'md') {
+				return;
+			}
+
+			menu.addItem((item) => {
+				item
+					.setTitle('Add to Assistant Context')
+					.setIcon('plus-circle')
+					.onClick(async () => {
+						await this.handleAddToContext(file as TFile);
+					});
+			});
 		}));
 
 		// Add the settings tab
@@ -226,6 +257,51 @@ export default class SerendipityPlugin extends Plugin {
 		this.app.workspace.revealLeaf(
 			this.app.workspace.getLeavesOfType(VIEW_TYPE_DISCOVER)[0]
 		);
+	}
+
+	async handleAddToContext(file: TFile) {
+		// Get active DiscoverView
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_DISCOVER);
+		if (leaves.length === 0) {
+			new Notice('Please open the Discover panel first (VaultPilot icon in sidebar)');
+			return;
+		}
+
+		const discoverView = leaves[0].view as DiscoverView;
+		if (!discoverView) {
+			new Notice('Could not access Discover view');
+			return;
+		}
+
+		// Get active session
+		const activeSession = this.sessionManager.getActiveSession();
+		if (!activeSession) {
+			new Notice('No active chat session');
+			return;
+		}
+
+		// Add file to context
+		this.sessionManager.addContextFiles(activeSession.id, [file.path]);
+		await this.saveSessions();
+
+		// Refresh UI to show the chip immediately
+		discoverView.refreshContextChips();
+
+		new Notice(`Added "${file.basename}" to chat context`);
+		console.log(`VaultPilot: Added ${file.path} to session ${activeSession.id}`);
+	}
+
+	/**
+	 * Refresh context chips in all open DiscoverView instances.
+	 */
+	private refreshAllDiscoverViewChips() {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_DISCOVER);
+		for (const leaf of leaves) {
+			const view = leaf.view as DiscoverView;
+			if (view && view.refreshContextChips) {
+				view.refreshContextChips();
+			}
+		}
 	}
 
 	handleAIEdit() {

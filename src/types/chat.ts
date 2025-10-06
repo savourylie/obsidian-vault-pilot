@@ -13,7 +13,8 @@ export interface ChatSession {
 	createdAt: number;
 	lastActiveAt: number;
 	messages: ChatMessage[];
-	contextFile?: string;
+	contextFile?: string; // Legacy field, migrated to contextFiles
+	contextFiles: string[]; // Attached context file paths
 }
 
 export interface ChatSessionsData {

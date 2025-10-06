@@ -725,6 +725,181 @@
 	font-size: var(--font-ui-small);
 }
 
+/* VaultPilot — Context Chips */
+
+.vp-context-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 0;
+	min-height: 36px;
+}
+
+.vp-add-context-btn {
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-modifier-form-field);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.vp-add-context-btn:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+	transform: scale(1.05);
+}
+
+.vp-add-context-btn:active {
+	transform: scale(0.95);
+}
+
+.vp-add-context-btn svg {
+	width: 16px;
+	height: 16px;
+	color: var(--text-muted);
+}
+
+.vp-context-chips {
+	flex: 1;
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	overflow-x: auto;
+	overflow-y: hidden;
+	max-height: 80px;
+	align-items: flex-start;
+}
+
+.vp-context-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px 4px 10px;
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 14px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-normal);
+	cursor: pointer;
+	transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+	white-space: nowrap;
+	max-width: 250px;
+}
+
+.vp-context-chip:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+	transform: translateY(-1px);
+}
+
+.vp-context-chip:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.vp-context-chip__label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vp-context-chip__remove {
+	flex: 0 0 auto;
+	width: 16px;
+	height: 16px;
+	padding: 0;
+	border: none;
+	background: transparent;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.vp-context-chip__remove:hover {
+	background: var(--background-modifier-error-hover);
+	transform: scale(1.15);
+}
+
+.vp-context-chip__remove svg {
+	width: 12px;
+	height: 12px;
+	color: var(--text-muted);
+}
+
+.vp-context-chip__remove:hover svg {
+	color: var(--text-error);
+}
+
+/* Note Search Modal Suggestions */
+
+.vp-note-search-suggestion {
+	padding: 8px 12px;
+	cursor: pointer;
+}
+
+.vp-note-search-title {
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	color: var(--text-normal);
+	margin-bottom: 2px;
+}
+
+.vp-note-search-path {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* @ Mention Popover */
+
+.vp-at-mention-popover {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	max-height: 300px;
+	overflow-y: auto;
+	z-index: 1000;
+	padding: 4px;
+}
+
+.vp-at-mention-item {
+	padding: 8px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.1s ease;
+}
+
+.vp-at-mention-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.vp-at-mention-item--selected {
+	background: var(--background-modifier-active-hover);
+}
+
+.vp-at-mention-title {
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	color: var(--text-normal);
+	margin-bottom: 2px;
+}
+
+.vp-at-mention-path {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
 /* VaultPilot — Reduced Motion Support */
 
 @media (prefers-reduced-motion: reduce) {
@@ -734,7 +909,9 @@
 	.vp-session-item,
 	.vp-typing-dot,
 	.vp-icon-btn,
-	.vp-btn {
+	.vp-btn,
+	.vp-context-chip,
+	.vp-add-context-btn {
 		transition: none !important;
 		animation: none !important;
 	}
@@ -742,7 +919,8 @@
 	.vp-chat-message,
 	.vp-result-card,
 	.vp-session-dropdown,
-	.vp-session-item {
+	.vp-session-item,
+	.vp-context-chip {
 		will-change: auto;
 	}
 }

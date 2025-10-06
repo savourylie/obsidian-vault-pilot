@@ -3,6 +3,7 @@ import { RetrievalService } from '../services/RetrievalService';
 import { ChatService, ChatServiceOptions } from '../services/ChatService';
 import { OllamaAdapter } from '../llm/OllamaAdapter';
 import { SessionManager } from '../services/SessionManager';
+import { NoteSearchModal } from './NoteSearchModal';
 import anime from 'animejs';
 
 export const VIEW_TYPE_DISCOVER = 'serendipity-discover-view';
@@ -24,6 +25,11 @@ export class DiscoverView extends ItemView {
 	private typingIndicator: HTMLElement | null = null;
 	private ollamaUrl: string = 'http://localhost:11434';
 	private defaultChatModel: string | null = null;
+	private contextChipsContainer: HTMLElement | null = null;
+	private atMentionPopover: HTMLElement | null = null;
+	private atMentionSelectedIndex: number = 0;
+	private atMentionFiles: TFile[] = [];
+	private atMentionQuery: string | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -107,6 +113,7 @@ export class DiscoverView extends ItemView {
 		if (this.sessionManager) {
 			this.chatService.loadActiveSession();
 			this.renderChatHistory();
+			this.renderContextChips();
 		}
 
 		this.registerEvents();
@@ -255,6 +262,20 @@ export class DiscoverView extends ItemView {
 			text: 'Ask follow-up questions about the active note.',
 		});
 
+		// Context bar with chips and + button
+		const contextBar = this.chatContainer.createEl('div', { cls: 'vp-context-bar' });
+
+		// + button to add context
+		const addBtn = contextBar.createEl('button', {
+			cls: 'vp-add-context-btn',
+			attr: { 'aria-label': 'Add context file' }
+		});
+		setIcon(addBtn, 'plus-circle');
+		addBtn.addEventListener('click', () => this.showAddContextPicker());
+
+		// Chips container
+		this.contextChipsContainer = contextBar.createEl('div', { cls: 'vp-context-chips' });
+
 		const chatSurface = this.chatContainer.createEl('div', { cls: 'vp-chat-surface' });
 		this.chatMessagesEl = chatSurface.createEl('div', { cls: 'vp-chat-messages' });
 
@@ -273,10 +294,44 @@ export class DiscoverView extends ItemView {
 
 		// Send on Enter (but Shift+Enter for newline)
 		this.chatInputEl.addEventListener('keydown', (e) => {
+			// Handle @ mention popover navigation
+			if (this.atMentionPopover) {
+				if (e.key === 'ArrowDown') {
+					e.preventDefault();
+					this.atMentionSelectedIndex = Math.min(
+						this.atMentionSelectedIndex + 1,
+						this.atMentionFiles.length - 1
+					);
+					this.renderAtMentionPopover();
+					return;
+				} else if (e.key === 'ArrowUp') {
+					e.preventDefault();
+					this.atMentionSelectedIndex = Math.max(this.atMentionSelectedIndex - 1, 0);
+					this.renderAtMentionPopover();
+					return;
+				} else if (e.key === 'Enter') {
+					e.preventDefault();
+					if (this.atMentionFiles[this.atMentionSelectedIndex]) {
+						this.selectAtMentionFile(this.atMentionFiles[this.atMentionSelectedIndex]);
+					}
+					return;
+				} else if (e.key === 'Escape') {
+					e.preventDefault();
+					this.closeAtMentionPopover();
+					return;
+				}
+			}
+
+			// Normal enter key handling (send message)
 			if (e.key === 'Enter' && !e.shiftKey) {
 				e.preventDefault();
 				this.sendMessage();
 			}
+		});
+
+		// Listen for @ mentions
+		this.chatInputEl.addEventListener('input', () => {
+			this.handleAtMentionInput();
 		});
 
 		// Model selection dropdown below the chat box
@@ -353,12 +408,8 @@ export class DiscoverView extends ItemView {
 		const message = this.chatInputEl.value.trim();
 		if (!message) return;
 
-		// Get current document as context
-		const file = this.app.workspace.getActiveFile?.();
-		let context = '';
-		if (file && (file as any).extension === 'md') {
-			context = await (this.app.vault as any).read(file);
-		}
+		// Build context from active file + attached files
+		const context = await this.buildContextFromAttachments();
 
 		// Clear input
 		this.chatInputEl.value = '';
@@ -641,6 +692,9 @@ export class DiscoverView extends ItemView {
 		if (this.chatMessagesEl) {
 			this.chatMessagesEl.empty();
 		}
+
+		// Clear and re-render chips for new session
+		this.renderContextChips();
 	}
 
 	private loadSession(sessionId: string) {
@@ -651,6 +705,9 @@ export class DiscoverView extends ItemView {
 
 		// Re-render chat history
 		this.renderChatHistory();
+
+		// Re-render context chips
+		this.renderContextChips();
 	}
 
 	private renderChatHistory() {
@@ -666,5 +723,371 @@ export class DiscoverView extends ItemView {
 				this.addMessageToUI(msg.role, msg.content);
 			}
 		}
+	}
+
+	private renderContextChips() {
+		if (!this.contextChipsContainer || !this.sessionManager) return;
+
+		// Clear existing chips
+		this.contextChipsContainer.empty();
+
+		// Get active session's context files
+		const activeSession = this.sessionManager.getActiveSession();
+		if (!activeSession || !activeSession.contextFiles || activeSession.contextFiles.length === 0) {
+			return;
+		}
+
+		// Render chip for each context file
+		for (const filePath of activeSession.contextFiles) {
+			const file = this.app.vault.getAbstractFileByPath(filePath) as TFile | null;
+			if (!file) continue; // Skip missing files
+
+			const chip = this.contextChipsContainer.createEl('div', { cls: 'vp-context-chip' });
+			chip.tabIndex = 0;
+
+			// Chip content: basename • path
+			const chipLabel = chip.createEl('span', { cls: 'vp-context-chip__label' });
+			const basename = file.basename;
+			const pathLabel = this.getResultPathLabel(filePath);
+			chipLabel.textContent = `${basename} • ${pathLabel}`;
+
+			// Remove button
+			const removeBtn = chip.createEl('button', {
+				cls: 'vp-context-chip__remove',
+				attr: { 'aria-label': 'Remove from context' }
+			});
+			setIcon(removeBtn, 'x');
+
+			// Click chip to open file
+			chip.addEventListener('click', (e) => {
+				if (e.target === removeBtn || removeBtn.contains(e.target as Node)) {
+					return; // Let remove button handle its own click
+				}
+				this.openFile(filePath);
+			});
+
+			// Click × to remove
+			removeBtn.addEventListener('click', async (e) => {
+				e.stopPropagation();
+				await this.removeContextFile(filePath);
+			});
+
+			// Keyboard support
+			chip.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+					e.preventDefault();
+					this.openFile(filePath);
+				}
+			});
+		}
+	}
+
+	private async removeContextFile(filePath: string) {
+		if (!this.sessionManager) return;
+
+		const activeSession = this.sessionManager.getActiveSession();
+		if (!activeSession) return;
+
+		// Remove from session
+		this.sessionManager.removeContextFile(activeSession.id, filePath);
+
+		// Save session
+		if (this.onSessionSave) {
+			await this.onSessionSave();
+		}
+
+		// Re-render chips
+		this.renderContextChips();
+	}
+
+	private showAddContextPicker() {
+		// Open searchable modal for selecting context files
+		const modal = new NoteSearchModal(
+			this.app,
+			this.retrieval,
+			async (path: string) => {
+				await this.addContextFile(path);
+			}
+		);
+		modal.open();
+	}
+
+	private async addContextFile(filePath: string) {
+		if (!this.sessionManager) return;
+
+		const activeSession = this.sessionManager.getActiveSession();
+		if (!activeSession) return;
+
+		// Add to session
+		this.sessionManager.addContextFiles(activeSession.id, [filePath]);
+
+		// Save session
+		if (this.onSessionSave) {
+			await this.onSessionSave();
+		}
+
+		// Re-render chips
+		this.renderContextChips();
+	}
+
+	/**
+	 * Public method to refresh context chips UI.
+	 * Called externally (e.g., from main.ts context menu handler).
+	 */
+	refreshContextChips() {
+		this.renderContextChips();
+	}
+
+	/**
+	 * Handle @ mention input detection and popover management.
+	 */
+	private handleAtMentionInput() {
+		if (!this.chatInputEl) return;
+
+		const value = this.chatInputEl.value;
+		const cursorPos = this.chatInputEl.selectionStart;
+
+		// Find text from last whitespace (or start) to cursor
+		const textBeforeCursor = value.substring(0, cursorPos);
+		const lastWhitespace = Math.max(
+			textBeforeCursor.lastIndexOf(' '),
+			textBeforeCursor.lastIndexOf('\n')
+		);
+		const currentWord = textBeforeCursor.substring(lastWhitespace + 1);
+
+		// Check if it starts with @
+		const atMatch = currentWord.match(/^@(\w*)$/);
+
+		if (atMatch) {
+			const query = atMatch[1] || '';
+			this.showAtMentionPopover(query);
+		} else {
+			this.closeAtMentionPopover();
+		}
+	}
+
+	/**
+	 * Show @ mention popover with file suggestions.
+	 */
+	private showAtMentionPopover(query: string) {
+		this.atMentionQuery = query;
+		this.atMentionFiles = this.getAtMentionSuggestions(query);
+		this.atMentionSelectedIndex = 0;
+
+		if (this.atMentionFiles.length === 0) {
+			this.closeAtMentionPopover();
+			return;
+		}
+
+		if (!this.atMentionPopover) {
+			this.atMentionPopover = document.body.createEl('div', { cls: 'vp-at-mention-popover' });
+
+			// Close on outside click
+			const closeHandler = (e: MouseEvent) => {
+				if (this.atMentionPopover && !this.atMentionPopover.contains(e.target as Node)) {
+					this.closeAtMentionPopover();
+					document.removeEventListener('click', closeHandler);
+				}
+			};
+			setTimeout(() => document.addEventListener('click', closeHandler), 0);
+		}
+
+		this.renderAtMentionPopover();
+		this.positionAtMentionPopover();
+	}
+
+	/**
+	 * Render @ mention popover suggestions.
+	 */
+	private renderAtMentionPopover() {
+		if (!this.atMentionPopover) return;
+
+		this.atMentionPopover.empty();
+
+		for (let i = 0; i < this.atMentionFiles.length; i++) {
+			const file = this.atMentionFiles[i];
+			const item = this.atMentionPopover.createEl('div', { cls: 'vp-at-mention-item' });
+
+			if (i === this.atMentionSelectedIndex) {
+				item.addClass('vp-at-mention-item--selected');
+			}
+
+			const title = item.createEl('div', { cls: 'vp-at-mention-title', text: file.basename });
+			const path = item.createEl('div', { cls: 'vp-at-mention-path', text: this.getResultPathLabel(file.path) });
+
+			item.addEventListener('click', () => {
+				this.selectAtMentionFile(file);
+			});
+
+			// Scroll selected item into view
+			if (i === this.atMentionSelectedIndex) {
+				item.scrollIntoView({ block: 'nearest' });
+			}
+		}
+	}
+
+	/**
+	 * Position @ mention popover below the chat input.
+	 */
+	private positionAtMentionPopover() {
+		if (!this.atMentionPopover || !this.chatInputEl) return;
+
+		const rect = this.chatInputEl.getBoundingClientRect();
+		this.atMentionPopover.style.top = `${rect.bottom + 4}px`;
+		this.atMentionPopover.style.left = `${rect.left}px`;
+		this.atMentionPopover.style.width = `${rect.width}px`;
+	}
+
+	/**
+	 * Close @ mention popover.
+	 */
+	private closeAtMentionPopover() {
+		if (this.atMentionPopover) {
+			this.atMentionPopover.remove();
+			this.atMentionPopover = null;
+		}
+		this.atMentionFiles = [];
+		this.atMentionSelectedIndex = 0;
+		this.atMentionQuery = null;
+	}
+
+	/**
+	 * Select a file from @ mention popover.
+	 */
+	private async selectAtMentionFile(file: TFile) {
+		// Remove @ mention text from input
+		if (this.chatInputEl) {
+			const value = this.chatInputEl.value;
+			const cursorPos = this.chatInputEl.selectionStart;
+			const textBeforeCursor = value.substring(0, cursorPos);
+			const lastWhitespace = Math.max(
+				textBeforeCursor.lastIndexOf(' '),
+				textBeforeCursor.lastIndexOf('\n')
+			);
+			const beforeAt = value.substring(0, lastWhitespace + 1);
+			const afterCursor = value.substring(cursorPos);
+			this.chatInputEl.value = beforeAt + afterCursor;
+			this.chatInputEl.selectionStart = this.chatInputEl.selectionEnd = beforeAt.length;
+		}
+
+		// Attach file
+		await this.addContextFile(file.path);
+
+		// Close popover
+		this.closeAtMentionPopover();
+
+		// Focus back on input
+		this.chatInputEl?.focus();
+	}
+
+	/**
+	 * Get file suggestions for @ mention query.
+	 */
+	private getAtMentionSuggestions(query: string): TFile[] {
+		const allFiles = this.app.vault.getMarkdownFiles();
+
+		// Empty query: return recent files
+		if (!query || query.trim().length === 0) {
+			return allFiles
+				.sort((a, b) => (b.stat?.mtime || 0) - (a.stat?.mtime || 0))
+				.slice(0, 10);
+		}
+
+		// Try using RetrievalService for intelligent search
+		if (this.retrieval) {
+			try {
+				const results = this.retrieval.search(query, { limit: 10 });
+				const files: TFile[] = [];
+				for (const result of results) {
+					const file = this.app.vault.getAbstractFileByPath(result.path) as TFile;
+					if (file) {
+						files.push(file);
+					}
+				}
+				if (files.length > 0) {
+					return files;
+				}
+			} catch (err) {
+				console.warn('DiscoverView: @ mention search failed, using fallback', err);
+			}
+		}
+
+		// Fallback: simple basename filtering
+		const lowerQuery = query.toLowerCase();
+		return allFiles
+			.filter(file => file.basename.toLowerCase().includes(lowerQuery))
+			.slice(0, 10);
+	}
+
+	/**
+	 * Build context string from active file + attached context files.
+	 * Returns fenced content for each file with distinct markers.
+	 */
+	private async buildContextFromAttachments(): Promise<string> {
+		const contextParts: string[] = [];
+		const processedPaths = new Set<string>();
+
+		// Track active file path
+		const activeFile = this.app.workspace.getActiveFile?.();
+		const activeFilePath = (activeFile && (activeFile as any).extension === 'md') ? activeFile.path : null;
+
+		// Collect all paths to include
+		const pathsToInclude: string[] = [];
+
+		// Add active file
+		if (activeFilePath) {
+			pathsToInclude.push(activeFilePath);
+		}
+
+		// Add attached context files
+		if (this.sessionManager) {
+			const activeSession = this.sessionManager.getActiveSession();
+			if (activeSession && activeSession.contextFiles) {
+				pathsToInclude.push(...activeSession.contextFiles);
+			}
+		}
+
+		// Dedupe paths
+		const uniquePaths = Array.from(new Set(pathsToInclude));
+
+		// Read and fence each file
+		for (const filePath of uniquePaths) {
+			if (processedPaths.has(filePath)) continue;
+			processedPaths.add(filePath);
+
+			const file = this.app.vault.getAbstractFileByPath(filePath) as TFile | null;
+			if (!file) {
+				console.log(`VaultPilot: Skipping missing file: ${filePath}`);
+				continue;
+			}
+
+			try {
+				const content = await (this.app.vault as any).read(file);
+
+				// Use different fence markers for active file vs attached files
+				const isActiveFile = filePath === activeFilePath;
+				const beginMarker = isActiveFile
+					? `--- BEGIN ACTIVE FILE: ${filePath} ---`
+					: `--- BEGIN ATTACHED FILE: ${filePath} ---`;
+				const endMarker = isActiveFile
+					? `--- END ACTIVE FILE ---`
+					: `--- END ATTACHED FILE ---`;
+
+				const fencedContent = `${beginMarker}\n${content}\n${endMarker}\n\n`;
+				contextParts.push(fencedContent);
+			} catch (err) {
+				console.warn(`VaultPilot: Error reading file ${filePath}:`, err);
+			}
+		}
+
+		const finalContext = contextParts.join('');
+		const fileCount = contextParts.length;
+		const charCount = finalContext.length;
+
+		if (fileCount > 0) {
+			console.log(`VaultPilot: Assembled context from ${fileCount} file(s) (${charCount} chars total)`);
+		}
+
+		return finalContext;
 	}
 }

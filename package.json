@@ -11,6 +11,8 @@
     "headless:test:ollama": "node scripts/ollama-test.js",
     "headless:test:context": "node scripts/context-assembler-test.js",
     "headless:test:chat": "node scripts/chat-window-test.js",
+    "headless:test:session": "node scripts/session-model-test.js",
+    "headless:test:attachments": "node scripts/headless-test-attachments.js",
     "ui:snap": "playwright test scripts/ui-snapshot --config=playwright.config.ts",
     "ui:install": "playwright install chromium"
   },
