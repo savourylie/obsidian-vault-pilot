@@ -345,23 +345,37 @@ export class DiscoverView extends ItemView {
 				easing: 'easeInOutCubic',
 			});
 			} else {
-				// Expand: measure target height, then animate from 0
+				// Expand: measure final layout height without flashing full content
+				const previousVisibility = this.resultsScrollEl.style.visibility;
+				this.resultsScrollEl.style.visibility = 'hidden';
+
+				if (this.resultsSection) {
+					this.resultsSection.style.flex = ''; // allow stylesheet flex to determine final size during measurement
+				}
+				this.resultsScrollEl.style.flex = '';
+				this.resultsScrollEl.style.overflow = '';
+				this.resultsScrollEl.style.height = '';
+				const targetHeight = this.resultsScrollEl.offsetHeight;
+
+				// Restore collapsed baseline for animation start
+				this.resultsScrollEl.style.visibility = 'hidden';
 				this.resultsScrollEl.style.flex = '0 0 auto';
 				this.resultsScrollEl.style.overflow = 'hidden';
-				this.resultsScrollEl.style.height = ''; // remove inline height to measure content
-				const targetHeight = this.resultsScrollEl.scrollHeight;
+				this.resultsScrollEl.style.height = '0px';
 				if (this.resultsSection) {
 					this.resultsSection.style.flex = '0 0 auto';
 				}
-
-				// Reset to 0 for animation start
-				this.resultsScrollEl.style.height = '0px';
 
 				anime({
 					targets: this.resultsScrollEl,
 					height: targetHeight + 'px',
 					duration: 350,
 					easing: 'easeInOutCubic',
+					begin: () => {
+						if (this.resultsScrollEl) {
+							this.resultsScrollEl.style.visibility = previousVisibility || '';
+						}
+					},
 					complete: () => {
 						if (this.resultsScrollEl) {
 							this.resultsScrollEl.style.height = ''; // Clear height to restore flex behavior
