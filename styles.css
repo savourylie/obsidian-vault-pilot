@@ -64,12 +64,16 @@
 }
 
 .vp-section--results {
-	flex: 1;
+	flex: 0.6;
 	min-height: 0;
+	background: var(--vp-slate-100);
+	transition: flex 0.3s ease-in-out;
 }
 
 .vp-section--chat {
-	flex: 0 0 auto;
+	flex: 1;
+	background: var(--vp-slate-200);
+	transition: flex 0.3s ease-in-out;
 }
 
 .vp-section-header {
@@ -133,10 +137,10 @@
 	background: var(--background-primary-alt, var(--vp-section-bg));
 	border: 1px solid var(--vp-section-border);
 	border-radius: var(--vp-radius-md);
-	padding: 14px 16px;
+	padding: 12px 14px;
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 8px;
 	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
@@ -168,7 +172,7 @@
 
 .vp-result-card__title {
 	font-weight: 600;
-	font-size: var(--font-ui-medium);
+	font-size: var(--font-ui-small);
 	color: var(--text-normal);
 	margin: 0;
 }
@@ -183,7 +187,7 @@
 
 .vp-result-card__snippet {
 	color: var(--vp-text-muted);
-	font-size: var(--font-ui-small);
+	font-size: var(--font-ui-smaller);
 	line-height: 1.4;
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
