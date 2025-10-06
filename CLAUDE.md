@@ -29,6 +29,12 @@ npm run headless:test:context        # Context assembler tests
 npm run headless:test:chat           # Chat token window and compaction tests
 npm run headless:test:session        # Session model and context attachments tests
 npm run headless:test:attachments    # Context attachment prompt assembly tests
+npm run headless:test:tagging        # Tag suggestion service tests
+npm run headless:test:tagging:tfidf  # TF-IDF tag fallback tests
+
+# UI snapshot testing (Playwright)
+npm run ui:install                   # Install Playwright browser (one-time)
+npm run ui:snap                      # Run visual regression tests
 ```
 
 **Note**: This plugin uses `esbuild` to bundle `src/main.ts` → `main.js`. To test in Obsidian, copy the repo into `<vault>/.obsidian/plugins/vault-pilot/` and enable Community Plugins.
@@ -43,12 +49,14 @@ src/
     EditModal.ts          # Modal for inline AI edit instructions
     SuggestionCallout.ts  # Renders AI suggestions as collapsible callouts
     NoteSearchModal.ts    # Searchable modal for adding context files
+    TagSuggestionModal.ts # Modal for AI-powered tag suggestions
   services/
     IndexingService.ts    # BM25 index (tokenize, tf-idf, frontmatter ai.index flag)
     RetrievalService.ts   # Search/ranking via IndexingService
     ChatService.ts        # Chat history + token window management + compaction
     SessionManager.ts     # Persistent chat session storage
     ContextAssembler.ts   # Builds prompts with retrieval context
+    TaggingService.ts     # AI + TF-IDF tag suggestions
   llm/
     OllamaAdapter.ts      # Ollama API integration (streaming + generation)
     LMStudioAdapter.ts    # LM Studio API integration (OpenAI-compatible)
@@ -69,6 +77,9 @@ scripts/
   chat-window-test.js           # Chat token window and compaction tests
   session-model-test.js         # Session management and context attachments tests
   headless-test-attachments.js  # Context attachment prompt assembly tests
+  tagging-test.js               # Tag suggestion service tests
+  tagging-tfidf-test.js         # TF-IDF tag fallback tests
+  ui-snapshot/                  # Playwright visual regression tests
   mocks/obsidian.js             # Minimal Obsidian API mock for testing
 
 Root files:
@@ -115,11 +126,18 @@ Root files:
    - Supports legacy migration from single `contextFile` to `contextFiles[]`
    - Exports/imports session data to plugin storage
 
-6. **SerendipityPlugin** (`src/main.ts`)
+6. **TaggingService** (`src/services/TaggingService.ts`)
+   - AI-powered tag suggestions with TF-IDF fallback
+   - Uses LLM to suggest contextually relevant tags
+   - Falls back to TF-IDF scoring when LLM unavailable or fails
+   - Filters stopwords and enforces min/max tag count
+   - Excludes already-present tags and prefers vault-known tags
+
+7. **SerendipityPlugin** (`src/main.ts`)
    - Plugin entry point
-   - Registers commands: `toggle-discover-panel`, `reindex-vault`, `ai-edit-selection`
+   - Registers commands: `toggle-discover-panel`, `reindex-vault`, `ai-edit-selection`, `suggest-tags`
    - Wires vault events → IndexingService updates → saves index to plugin data
-   - Manages plugin settings (Ollama URL, token window settings)
+   - Manages plugin settings (LLM provider, URLs, token window, default models)
    - Persists index, settings, and chat sessions to plugin data
 
 ### Ranking Blend (Planned)
@@ -217,6 +235,14 @@ where `graph` includes backlinks, shared tags, same folder.
 - **Context Trimming**: Large documents automatically trimmed to fit remaining budget
 - **Fallback**: If LLM summarization fails, use truncated fallback summary
 
+### UI Features
+
+- **Collapsible Related Notes**: Related notes section in Discover panel can be collapsed/expanded (state persists)
+- **Chat Message Copy**: Hover-activated copy button on each message with visual feedback (check icon on success)
+- **Fresh Session on Launch**: New chat session starts automatically when Obsidian opens
+- **Flexible Layout**: Chat container uses flexible layout for better content adaptation
+- **Smooth Animations**: Content expansion/collapse uses CSS transitions to prevent flash
+
 ## Plugin Settings
 
 VaultPilot exposes the following settings in the Settings tab:
@@ -251,6 +277,15 @@ VaultPilot exposes the following settings in the Settings tab:
 
 9. **Default Edit Model** (optional)
    - Default model to use for inline edits (preselected in edit modal)
+
+10. **Edit with AI Presets** (customizable)
+   - Quick action presets for inline edits (e.g., "Fix grammar", "Simplify")
+   - Each preset has name + system prompt
+   - Presets auto-execute generation when selected
+
+11. **Tag Suggestion Settings**
+   - Max tags to suggest (default: 5)
+   - Min tags to suggest (default: 3)
 
 **Token Budget Formula**: `effectiveBudget = maxPromptTokens - reservedResponseTokens`
 
