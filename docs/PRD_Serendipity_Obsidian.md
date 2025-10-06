@@ -1,4 +1,4 @@
-# Serendipity Engine — Obsidian AI Plugin PRD (v0.1)
+# VaultPilot — Obsidian AI Plugin PRD (v0.1)
 
 ## 1) Summary
 **Thesis:** Obsidian doesn’t need another chatbot; it needs an **AI with precise context control** that can (1) surface forgotten connections at the right time (*serendipity engine*) and (2) apply changes **safely and surgically** (*inline Copilot-style edit with diffs*).

@@ -1,0 +1,92 @@
+/* VaultPilot Design System v2.0 */
+/* Professional & Balanced | Sophisticated & Trustworthy */
+
+:root {
+	/* ==================== SPACING SCALE (8px base) ==================== */
+	--vp-space-xs: 4px;
+	--vp-space-sm: 8px;
+	--vp-space-md: 12px;
+	--vp-space-lg: 16px;
+	--vp-space-xl: 24px;
+	--vp-space-2xl: 32px;
+
+	/* ==================== BORDER RADIUS ==================== */
+	--vp-radius-sm: 6px;
+	--vp-radius-md: 8px;
+	--vp-radius-lg: 12px;
+	--vp-radius-xl: 16px;
+
+	/* ==================== SHADOWS / ELEVATION ==================== */
+	--vp-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
+	--vp-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.12);
+	--vp-shadow-3: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+	/* ==================== COLOR PALETTE ==================== */
+
+	/* Navy Spectrum (Primary Darks) */
+	--vp-navy-900: #1a2332;
+	--vp-navy-800: #273449;
+	--vp-navy-700: #364357;
+	--vp-navy-600: #4a5568;
+
+	/* Slate Spectrum (Neutrals) */
+	--vp-slate-100: #f8f9fa;
+	--vp-slate-200: #e9ecef;
+	--vp-slate-300: #cbd5e0;
+	--vp-slate-400: #94a3b8;
+
+	/* Accent Colors */
+	--vp-accent-primary: #5b7fff;
+	--vp-accent-hover: #4a6ee6;
+	--vp-accent-active: #3b5ed4;
+	--vp-accent-light: #e8eeff;
+
+	/* Semantic Colors */
+	--vp-success: #10b981;
+	--vp-warning: #f59e0b;
+	--vp-error: #ef4444;
+	--vp-purple: #8b5cf6;
+	--vp-purple-light: rgba(139, 92, 246, 0.06);
+
+	/* ==================== TYPOGRAPHY ==================== */
+
+	/* Font Sizes */
+	--vp-font-size-header: 15px;
+	--vp-font-size-body: 13px;
+	--vp-font-size-caption: 11px;
+	--vp-font-size-label: 12px;
+
+	/* Font Weights */
+	--vp-font-weight-regular: 400;
+	--vp-font-weight-medium: 500;
+	--vp-font-weight-semibold: 600;
+
+	/* Line Heights */
+	--vp-line-height-tight: 1.2;
+	--vp-line-height-normal: 1.4;
+	--vp-line-height-relaxed: 1.5;
+
+	/* Letter Spacing */
+	--vp-letter-spacing-tight: -0.01em;
+	--vp-letter-spacing-normal: 0;
+	--vp-letter-spacing-wide: 0.03em;
+	--vp-letter-spacing-wider: 0.04em;
+}
+
+/* ==================== DARK MODE ADJUSTMENTS ==================== */
+.theme-dark {
+	/* Adjust shadows for dark mode */
+	--vp-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.3);
+	--vp-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.4);
+	--vp-shadow-3: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+	/* Adjust slate colors for dark mode */
+	--vp-slate-100: rgba(255, 255, 255, 0.05);
+	--vp-slate-200: rgba(255, 255, 255, 0.08);
+	--vp-slate-300: rgba(255, 255, 255, 0.12);
+	--vp-slate-400: rgba(255, 255, 255, 0.3);
+
+	/* Adjust purple light for dark mode */
+	--vp-purple-light: rgba(139, 92, 246, 0.12);
+	--vp-accent-light: rgba(91, 127, 255, 0.12);
+}

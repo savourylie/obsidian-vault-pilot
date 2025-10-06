@@ -1,0 +1,40 @@
+{
+  "name": "vault-pilot",
+  "version": "0.1.1",
+  "description": "A serendipity engine that surfaces forgotten connections with precise context control.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "npx esbuild src/main.ts --bundle --outfile=main.js --platform=node --format=cjs --target=es2018 --sourcemap=inline --external:obsidian",
+    "build": "npx esbuild src/main.ts --bundle --outfile=main.js --platform=node --format=cjs --target=es2018 --minify --external:obsidian",
+    "headless:test": "node scripts/headless-test.js",
+    "headless:test:indexing": "node scripts/indexing-test.js",
+    "headless:test:ollama": "node scripts/ollama-test.js",
+    "headless:test:context": "node scripts/context-assembler-test.js",
+    "headless:test:chat": "node scripts/chat-window-test.js",
+    "headless:test:session": "node scripts/session-model-test.js",
+    "headless:test:attachments": "node scripts/headless-test-attachments.js",
+    "headless:test:tagging:tfidf": "node scripts/tagging-tfidf-test.js",
+    "headless:test:tagging": "node scripts/tagging-test.js",
+    "ui:snap": "playwright test scripts/ui-snapshot --config=playwright.config.ts",
+    "ui:install": "playwright install chromium"
+  },
+  "keywords": [],
+  "author": "dev",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/diff": "^7.0.2",
+    "@types/node": "^18.19.39",
+    "@typescript-eslint/eslint-plugin": "5.62.0",
+    "@typescript-eslint/parser": "5.62.0",
+    "builtin-modules": "3.3.0",
+    "esbuild": "0.17.3",
+    "obsidian": "latest",
+    "tslib": "2.5.0",
+    "typescript": "4.9.5",
+    "@playwright/test": "^1.47.2"
+  },
+  "dependencies": {
+    "animejs": "^3.2.2",
+    "diff": "^8.0.2"
+  }
+}

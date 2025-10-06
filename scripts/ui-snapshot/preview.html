@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VaultPilot Chat Preview</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    :root {
+      /* Approximate Obsidian light theme variables used by styles.css */
+      --background-primary: #ffffff;
+      --background-primary-alt: #f8f8f8;
+      --background-secondary: #f5f5f5;
+      --background-modifier-border: #e1e1e1;
+      --background-modifier-hover: #f0f0f0;
+      --background-modifier-form-field: #f7f7f7;
+      --background-modifier-active-hover: #eef2ff;
+      --interactive-accent: #7c3aed; /* violet */
+      --interactive-accent-hover: #6d28d9;
+      --text-normal: #222222;
+      --text-muted: #8a8a8a;
+      --text-on-accent: #ffffff;
+      --font-interface: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      --font-monospace: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --font-ui-small: 13px;
+      --font-ui-smaller: 12px;
+      --font-ui-medium: 14px;
+    }
+    body { margin: 0; background: #f1efe7; padding: 24px; font-family: var(--font-interface); }
+    .frame { max-width: 840px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <section class="vp-section vp-section--chat">
+      <div class="vp-section-header vp-chat-header">
+        <h5>Assistant Chat</h5>
+        <p class="vp-section-subtitle">Ask follow-up questions about the active note.</p>
+      </div>
+      <div class="vp-chat-surface">
+        <div id="messages" class="vp-chat-messages">
+          <div class="vp-chat-message vp-chat-message--assistant">
+            <div class="vp-chat-message-role">Assistant</div>
+            <div class="vp-chat-message-content">
+              <p>This is a sample assistant message with <code>inline code</code> and a list:</p>
+              <ul><li>One</li><li>Two</li></ul>
+            </div>
+          </div>
+          <div class="vp-chat-message vp-chat-message--user">
+            <div class="vp-chat-message-role">You</div>
+            <div class="vp-chat-message-content">This is a sample user message.</div>
+          </div>
+        </div>
+        <div id="chat" class="vp-chat-input-container">
+          <textarea class="vp-chat-input" placeholder="Ask about the current document..."></textarea>
+          <button class="vp-chat-send" aria-label="Send">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 19V5"/>
+              <path d="M5 12l7-7 7 7"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
+

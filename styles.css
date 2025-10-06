@@ -1,0 +1,990 @@
+/* VaultPilot — Discover Panel styles */
+
+:root {
+	--vp-slate-100: var(--background-secondary);
+	--vp-slate-200: var(--background-secondary-alt, var(--background-secondary));
+}
+
+.vp-discover {
+	--vp-panel-bg: var(--background-secondary);
+	--vp-section-bg: var(--background-primary);
+	--vp-section-border: var(--background-modifier-border);
+	--vp-section-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+	--vp-radius-lg: 14px;
+	--vp-radius-md: 10px;
+	--vp-radius-sm: 8px;
+	--vp-radius-xl: 20px;
+	--vp-text-muted: var(--text-muted);
+	--vp-brand: var(--interactive-accent);
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	height: 100%;
+	overflow: hidden;
+	background: var(--vp-panel-bg);
+}
+
+.vp-header {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.vp-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.vp-title-row h4 {
+	margin: 0;
+	flex: 1;
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+.vp-brand-title {
+	color: var(--vp-brand);
+}
+
+.vp-body {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	flex: 1;
+	min-height: 0;
+}
+
+.vp-section {
+	background: var(--vp-section-bg);
+	border: 1px solid var(--vp-section-border);
+	border-radius: var(--vp-radius-lg);
+	box-shadow: var(--vp-section-shadow);
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.vp-section--results {
+	flex: 0.6;
+	min-height: 0;
+	background: var(--vp-slate-100, var(--background-secondary));
+}
+
+.vp-section--chat {
+	flex: 1;
+	background: var(--vp-slate-200, var(--background-secondary-alt, var(--background-secondary)));
+}
+
+.vp-section-header {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.vp-section-header__content {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.vp-section-header h5 {
+	margin: 0;
+	font-size: var(--font-ui-medium);
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.vp-section-subtitle {
+	margin: 0;
+	color: var(--vp-text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.vp-collapse-btn {
+	cursor: pointer;
+	transition: opacity 0.2s ease, transform 0.2s ease;
+	flex-shrink: 0;
+}
+
+.vp-collapse-btn:hover {
+	opacity: 0.7;
+}
+
+.vp-btn {
+	padding: 6px 14px;
+	border-radius: var(--vp-radius-sm);
+	border: 1px solid var(--vp-section-border);
+	background: var(--background-modifier-form-field);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.vp-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.vp-btn:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.vp-btn:active {
+	transform: translateY(1px);
+}
+
+.vp-results-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding-right: 2px;
+}
+
+.vp-results-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.vp-result-card {
+	background: var(--background-primary-alt, var(--vp-section-bg));
+	border: 1px solid var(--vp-section-border);
+	border-radius: var(--vp-radius-md);
+	padding: 12px 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.vp-result-card--clickable {
+	cursor: pointer;
+}
+
+.vp-result-card--clickable:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
+	border-color: var(--interactive-accent);
+}
+
+.vp-result-card--clickable:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 3px;
+}
+
+.vp-result-card--clickable:active {
+	transform: translateY(1px);
+}
+
+.vp-result-card__header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.vp-result-card__title {
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	margin: 0;
+}
+
+.vp-result-card__meta {
+	font-size: var(--font-ui-smaller);
+	color: var(--vp-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.vp-result-card__snippet {
+	color: var(--vp-text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	overflow: hidden;
+}
+
+.vp-empty {
+	color: var(--vp-text-muted);
+	font-size: var(--font-ui-small);
+	padding: 12px 0;
+}
+
+/* VaultPilot — Edit Modal styles */
+
+.vp-edit-modal {
+	padding: 16px;
+	max-width: 600px;
+}
+
+.vp-edit-modal h2 {
+	margin-top: 0;
+	margin-bottom: 12px;
+}
+
+.vp-selection-preview {
+	padding: 12px;
+	background: var(--background-secondary);
+	border-radius: 6px;
+	margin-bottom: 16px;
+}
+
+.vp-selection-preview strong {
+	display: block;
+	margin-bottom: 6px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.vp-selection-preview p {
+	margin: 0;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	line-height: 1.4;
+	max-height: 100px;
+	overflow-y: auto;
+}
+
+.vp-presets {
+	margin-bottom: 16px;
+}
+
+.vp-presets strong {
+	display: block;
+	margin-bottom: 8px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.vp-preset-buttons {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.vp-preset-btn {
+	padding: 6px 12px;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-modifier-form-field);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+	transition: background 0.1s ease;
+}
+
+.vp-preset-btn:hover {
+	background: var(--background-modifier-border-hover);
+}
+
+.vp-custom-prompt {
+	margin-bottom: 16px;
+}
+
+.vp-model-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 8px 0;
+}
+
+.vp-custom-prompt strong {
+	display: block;
+	margin-bottom: 8px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.vp-instruction-input {
+	width: 100%;
+	padding: 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-interface);
+	font-size: var(--font-ui-small);
+	resize: vertical;
+	min-height: 60px;
+}
+
+.vp-instruction-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+.vp-modal-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 16px;
+}
+
+.vp-btn--primary,
+.vp-btn-primary {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.vp-btn--primary:hover,
+.vp-btn-primary:hover:not(:disabled) {
+	background: var(--interactive-accent-hover);
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.vp-btn--primary:disabled,
+.vp-btn-primary:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* VaultPilot — Suggestion Callout styles */
+
+.vp-suggestion-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.vp-apply-btn,
+.vp-discard-btn {
+	padding: 6px 14px;
+	border-radius: 6px;
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+	transition: all 0.1s ease;
+}
+
+.vp-apply-btn {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border: 1px solid var(--interactive-accent);
+}
+
+.vp-apply-btn:hover {
+	background: var(--interactive-accent-hover);
+}
+
+.vp-discard-btn {
+	background: var(--background-modifier-form-field);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.vp-discard-btn:hover {
+	background: var(--background-modifier-border-hover);
+}
+
+/* Style the AI suggestion callout */
+.callout[data-callout="ai-suggestion"] {
+	border-color: var(--color-purple);
+}
+
+.callout[data-callout="ai-suggestion"] .callout-title {
+	background-color: rgba(147, 51, 234, 0.1);
+}
+
+/* VaultPilot — Chat UI styles */
+
+.vp-chat-header {
+	gap: 6px;
+	flex-direction: column !important;
+	align-items: stretch !important;
+}
+
+.vp-chat-surface {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 12px;
+	border: 1px solid var(--vp-section-border);
+	border-radius: var(--vp-radius-md);
+	background: var(--background-secondary);
+	min-height: 260px;
+	flex: 1;
+}
+
+.vp-chat-messages {
+	flex: 1;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding-right: 4px;
+	min-height: 150px;
+}
+
+.vp-chat-message {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-width: 78%;
+}
+
+.vp-chat-message--user {
+	align-self: flex-end;
+	align-items: flex-end;
+}
+
+.vp-chat-message--assistant {
+	align-self: flex-start;
+	align-items: flex-start;
+}
+
+.vp-chat-message-role {
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	color: var(--vp-text-muted);
+}
+
+.vp-chat-message--user .vp-chat-message-role {
+	color: var(--text-on-accent);
+	text-align: right;
+}
+
+.vp-chat-message--assistant .vp-chat-message-role {
+	color: var(--vp-text-muted);
+	text-align: left;
+}
+
+.vp-chat-message-content {
+	padding: 8px 10px;
+	border-radius: var(--vp-radius-md);
+	font-size: calc(var(--font-ui-small) + 2px);
+	line-height: 1.45;
+	white-space: pre-wrap;
+	word-break: break-word;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.vp-chat-message--user .vp-chat-message-content {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.vp-chat-message--assistant .vp-chat-message-content {
+	background: var(--vp-section-bg);
+	border: 1px solid var(--vp-section-border);
+	color: var(--text-normal);
+	box-shadow: none;
+}
+
+/* Professional markdown styling inside chat messages */
+.vp-chat-message-content :where(p, ul, ol, pre, blockquote, table) {
+	margin: 6px 0;
+}
+.vp-chat-message-content p:first-child,
+.vp-chat-message-content h1:first-child,
+.vp-chat-message-content h2:first-child,
+.vp-chat-message-content h3:first-child,
+.vp-chat-message-content h4:first-child,
+.vp-chat-message-content h5:first-child,
+.vp-chat-message-content h6:first-child {
+	margin-top: 0;
+}
+.vp-chat-message-content p:last-child,
+.vp-chat-message-content ul:last-child,
+.vp-chat-message-content ol:last-child,
+.vp-chat-message-content pre:last-child,
+.vp-chat-message-content blockquote:last-child,
+.vp-chat-message-content table:last-child {
+	margin-bottom: 0;
+}
+.vp-chat-message-content h1,
+.vp-chat-message-content h2,
+.vp-chat-message-content h3,
+.vp-chat-message-content h4,
+.vp-chat-message-content h5,
+.vp-chat-message-content h6 {
+	font-weight: 600;
+	line-height: 1.25;
+	margin: 8px 0 6px;
+}
+.vp-chat-message-content h1 { font-size: 1.05rem; }
+.vp-chat-message-content h2 { font-size: 1.02rem; }
+.vp-chat-message-content h3 { font-size: 1.0rem; }
+.vp-chat-message-content h4 { font-size: 0.98rem; }
+.vp-chat-message-content h5 { font-size: 0.96rem; }
+.vp-chat-message-content h6 { font-size: 0.94rem; }
+.vp-chat-message-content ul,
+.vp-chat-message-content ol { padding-left: 1.15em; }
+.vp-chat-message-content li { margin: 2px 0; }
+.vp-chat-message-content code {
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--vp-section-border);
+	border-radius: 4px;
+	padding: 0 4px;
+	font-family: var(--font-monospace);
+	font-size: 0.95em;
+}
+.vp-chat-message-content pre {
+	background: var(--background-secondary);
+	border: 1px solid var(--vp-section-border);
+	border-radius: var(--vp-radius-sm);
+	padding: 8px 10px;
+	overflow: auto;
+}
+.vp-chat-message-content pre code {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	font-size: 0.95em;
+}
+.vp-chat-message-content blockquote {
+	border-left: 3px solid var(--interactive-accent);
+	padding-left: 10px;
+	color: var(--vp-text-muted);
+}
+.vp-chat-message-content table {
+	border-collapse: collapse;
+	width: 100%;
+}
+.vp-chat-message-content th,
+.vp-chat-message-content td {
+	border-bottom: 1px solid var(--vp-section-border);
+	padding: 4px 6px;
+	text-align: left;
+}
+
+/* VaultPilot — Message Copy Button */
+
+.vp-chat-message-copy-btn {
+	position: absolute;
+	bottom: -32px;
+	right: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: all 0.2s ease;
+	background: transparent;
+	border-radius: 4px;
+	padding: 4px;
+	color: var(--text-muted);
+}
+
+.vp-chat-message:hover .vp-chat-message-copy-btn {
+	opacity: 0.6;
+	pointer-events: auto;
+}
+
+.vp-chat-message-copy-btn:hover {
+	opacity: 1 !important;
+	background: rgba(0, 0, 0, 0.05);
+	color: var(--text-normal);
+}
+
+.theme-dark .vp-chat-message-copy-btn:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.vp-chat-message-copy-btn svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* VaultPilot — Typing Indicator */
+
+.vp-typing-indicator {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	background: transparent;
+	padding: 0;
+}
+
+.vp-typing-dot {
+	width: 6px;
+	height: 6px;
+	background: var(--vp-text-muted);
+	border-radius: 50%;
+	display: inline-block;
+}
+
+.vp-chat-input-container {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	background: var(--background-primary);
+	border: 1px solid var(--vp-section-border);
+	border-radius: var(--vp-radius-xl);
+	padding: 6px 8px;
+	box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 10px 22px rgba(0,0,0,0.06);
+}
+
+.vp-chat-input {
+	flex: 1;
+	padding: 8px 10px;
+	border: none;
+	background: transparent;
+	color: var(--text-normal);
+	font-family: var(--font-interface);
+	font-size: calc(var(--font-ui-small) + 2px);
+	line-height: 1.4;
+	resize: vertical;
+	min-height: 42px;
+	max-height: 120px;
+}
+
+.vp-chat-input::placeholder { color: var(--text-muted); opacity: 0.8; }
+.vp-chat-input:focus { outline: none; }
+.vp-chat-input-container:focus-within {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 2px var(--interactive-accent), 0 10px 22px rgba(0,0,0,0.06);
+}
+
+.vp-chat-send {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--text-muted);
+	color: var(--text-on-accent);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+}
+.vp-chat-send:hover {
+	background: var(--text-normal);
+	color: var(--text-on-accent);
+	box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+}
+.vp-chat-send:active { transform: translateY(1px); }
+.vp-chat-send svg { width: 28px; height: 28px; stroke-width: 2.8; transform: scale(1.08); transform-origin: center; pointer-events: none; }
+
+/* Model selector */
+.vp-chat-modelbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 2px 4px;
+}
+.vp-model-label {
+	font-size: var(--font-ui-smaller);
+	color: var(--vp-text-muted);
+}
+.vp-model-select {
+	appearance: none;
+	padding: 6px 10px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--vp-section-border);
+	border-radius: 8px;
+	font-size: var(--font-ui-small);
+}
+.vp-model-select:focus { outline: none; border-color: var(--interactive-accent); box-shadow: 0 0 0 2px var(--interactive-accent); }
+
+/* VaultPilot — Animation Performance */
+
+.vp-chat-message,
+.vp-result-card,
+.vp-session-dropdown,
+.vp-session-item {
+	will-change: transform, opacity;
+}
+
+/* VaultPilot — Session Controls styles */
+
+.vp-session-controls {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+}
+
+.vp-icon-btn {
+	padding: 4px;
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.vp-icon-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	transform: scale(1.1);
+}
+
+.vp-icon-btn:active {
+	transform: scale(0.95);
+}
+
+.vp-icon-btn svg {
+	width: 16px;
+	height: 16px;
+}
+
+.vp-session-dropdown {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	min-width: 250px;
+	max-width: 350px;
+	max-height: 400px;
+	overflow-y: auto;
+	z-index: 1000;
+	padding: 4px;
+}
+
+.vp-session-item {
+	padding: 8px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.1s ease;
+	border: 1px solid transparent;
+}
+
+.vp-session-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.vp-session-item--active {
+	background: var(--background-modifier-active-hover);
+	border-color: var(--interactive-accent);
+}
+
+.vp-session-title {
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	color: var(--text-normal);
+	margin-bottom: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.vp-session-time {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.vp-session-empty {
+	padding: 12px;
+	text-align: center;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+/* VaultPilot — Context Chips */
+
+.vp-context-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 0;
+	min-height: 36px;
+}
+
+.vp-add-context-btn {
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-modifier-form-field);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.vp-add-context-btn:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+	transform: scale(1.05);
+}
+
+.vp-add-context-btn:active {
+	transform: scale(0.95);
+}
+
+.vp-add-context-btn svg {
+	width: 16px;
+	height: 16px;
+	color: var(--text-muted);
+}
+
+.vp-context-chips {
+	flex: 1;
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	overflow-x: auto;
+	overflow-y: hidden;
+	max-height: 80px;
+	align-items: flex-start;
+}
+
+.vp-context-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px 4px 10px;
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 14px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-normal);
+	cursor: pointer;
+	transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+	white-space: nowrap;
+	max-width: 250px;
+}
+
+.vp-context-chip:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+	transform: translateY(-1px);
+}
+
+.vp-context-chip:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.vp-context-chip__label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vp-context-chip__remove {
+	flex: 0 0 auto;
+	width: 16px;
+	height: 16px;
+	padding: 0;
+	border: none;
+	background: transparent;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.vp-context-chip__remove:hover {
+	background: var(--background-modifier-error-hover);
+	transform: scale(1.15);
+}
+
+.vp-context-chip__remove svg {
+	width: 12px;
+	height: 12px;
+	color: var(--text-muted);
+}
+
+.vp-context-chip__remove:hover svg {
+	color: var(--text-error);
+}
+
+/* Note Search Modal Suggestions */
+
+.vp-note-search-suggestion {
+	padding: 8px 12px;
+	cursor: pointer;
+}
+
+.vp-note-search-title {
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	color: var(--text-normal);
+	margin-bottom: 2px;
+}
+
+.vp-note-search-path {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* @ Mention Popover */
+
+.vp-at-mention-popover {
+	position: fixed;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	max-height: 300px;
+	overflow-y: auto;
+	z-index: 1000;
+	padding: 4px;
+}
+
+.vp-at-mention-item {
+	padding: 8px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.1s ease;
+}
+
+.vp-at-mention-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.vp-at-mention-item--selected {
+	background: var(--background-modifier-active-hover);
+}
+
+.vp-at-mention-title {
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	color: var(--text-normal);
+	margin-bottom: 2px;
+}
+
+.vp-at-mention-path {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* VaultPilot — Reduced Motion Support */
+
+@media (prefers-reduced-motion: reduce) {
+	.vp-chat-message,
+	.vp-result-card,
+	.vp-session-dropdown,
+	.vp-session-item,
+	.vp-typing-dot,
+	.vp-icon-btn,
+	.vp-btn,
+	.vp-context-chip,
+	.vp-add-context-btn {
+		transition: none !important;
+		animation: none !important;
+	}
+
+	.vp-chat-message,
+	.vp-result-card,
+	.vp-session-dropdown,
+	.vp-session-item,
+	.vp-context-chip {
+		will-change: auto;
+	}
+}

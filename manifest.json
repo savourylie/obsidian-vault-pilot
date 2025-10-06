@@ -1,0 +1,11 @@
+{
+    "id": "vault-pilot",
+    "name": "VaultPilot",
+	"version": "0.1.0",
+	"minAppVersion": "1.5.0",
+	"description": "A serendipity engine that surfaces forgotten connections with precise context control.",
+	"author": "dev",
+	"authorUrl": "",
+	"fundingUrl": "",
+	"isDesktopOnly": false
+}

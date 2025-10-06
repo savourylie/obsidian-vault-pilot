@@ -1,4 +1,4 @@
-# Serendipity Engine — Architecture & Data Flow
+# VaultPilot — Architecture & Data Flow
 
 > High-level view of how the plugin indexes notes, retrieves/ranks context, calls the LLM, and writes safe suggestions.
 
