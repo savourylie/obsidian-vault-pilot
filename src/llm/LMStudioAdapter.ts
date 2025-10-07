@@ -35,15 +35,13 @@ export class LMStudioAdapter implements LLMAdapter {
 		};
 
 		let text: string | null = null;
-		// Prefer Obsidian requestUrl to bypass CORS and sandbox issues
+		// Use Obsidian requestUrl to bypass CORS
 		try {
 			const r: any = await requestUrl({
 				url: `${this.baseUrl}/v1/chat/completions`,
 				method: 'POST',
-				// Ensure JSON content-type is correctly conveyed to the main process
 				contentType: 'application/json',
 				headers: { accept: 'application/json' },
-				// Do not throw on non-2xx so we can surface server error messages
 				throw: false as any,
 				body: JSON.stringify(payload),
 			});
@@ -62,28 +60,15 @@ export class LMStudioAdapter implements LLMAdapter {
 				})();
 				throw new Error(String(msg));
 			}
-		} catch (_primaryErr) {
-			// Fallback to fetch (may fail due to CORS in Obsidian)
-			try {
-				const resp = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-					body: JSON.stringify(payload),
-				});
-				if (!resp.ok) {
-					let errText = '';
-					try { errText = await resp.text(); } catch {}
-					// Try to surface server-provided error message
-					try {
-						const j = errText ? JSON.parse(errText) : null;
-						errText = j?.error?.message || j?.message || errText || `${resp.status} ${resp.statusText}`;
-					} catch {}
-					throw new Error(errText || `LM Studio request failed: ${resp.status} ${resp.statusText}`);
-				}
-				text = await resp.text();
-			} catch (err) {
-				throw err instanceof Error ? err : new Error('LM Studio request failed');
+		} catch (err) {
+			// Improve error message for connection failures
+			const errorMsg = err instanceof Error ? err.message : String(err);
+			// Check if it's a connection error
+			if (/ECONN|ENOTFOUND|ETIMEDOUT|network|fetch|Failed to fetch/i.test(errorMsg)) {
+				throw new Error('Could not connect to LM Studio. Is Local Server enabled?');
 			}
+			// Re-throw other errors with context
+			throw new Error(`LM Studio request failed: ${errorMsg}`);
 		}
 
 		let data: OpenAIChatCompletionResponse | null = null;
