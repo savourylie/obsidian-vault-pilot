@@ -90,7 +90,11 @@ export class DiscoverView extends ItemView {
 
 		const header = container.createEl('header', { cls: 'vp-header' });
 		const titleRow = header.createEl('div', { cls: 'vp-title-row' });
-		titleRow.createEl('h4', { cls: 'vp-brand-title', text: 'VaultPilot' });
+
+		// Brand container with logo and title
+		const brandContainer = titleRow.createEl('div', { cls: 'vp-brand-container' });
+		brandContainer.createEl('div', { cls: 'vp-brand-logo' });
+		brandContainer.createEl('h4', { cls: 'vp-brand-title', text: 'VaultPilot' });
 
 		// Add session controls
 		if (this.sessionManager) {
