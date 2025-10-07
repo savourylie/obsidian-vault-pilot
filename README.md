@@ -20,7 +20,7 @@ Your vault grows. Notes get buried. Connections fade.
 
 - **Smart Discovery** — Automatically surfaces related notes when you open or save a file, ranked by relevance
 - **Context-Aware Chat** — Attach specific files to your conversation; chat sessions persist across Obsidian restarts
-- **Inline AI Edit (⌘-⌥-K)** — Select text, choose a preset (fix grammar, expand, tighten), review diff, apply changes surgically
+- **Inline AI Edit (⌘-⌥-E)** — Select text, choose a preset (fix grammar, expand, tighten), review diff, apply changes surgically
 - **AI Tag Suggestions** — Get contextually relevant tags with explanations, powered by LLM + TF-IDF fallback
 - **Privacy First** — Local-only mode (BM25 search, no external calls) or opt-in to remote LLMs (Ollama, LM Studio)
 - **Safe by Design** — All AI edits output to a collapsible "Suggestions" sandbox; you explicitly approve changes
@@ -41,6 +41,28 @@ Your vault grows. Notes get buried. Connections fade.
 1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from Obsidian's Community Plugins
 2. In BRAT settings, add beta plugin: `calvinku/obsidian-vault-pilot` (or your fork)
 3. Enable VaultPilot in Community Plugins
+
+---
+
+## 📋 Prerequisites
+
+VaultPilot requires a local LLM provider to function. You must install one of the following before using the plugin:
+
+### Option 1: Ollama (Recommended)
+
+1. Download from [ollama.com](https://ollama.com/download)
+2. Install and launch the application
+3. Verify it's running: Open a terminal and run `ollama --version`
+4. The API should be accessible at `http://localhost:11434`
+
+### Option 2: LM Studio
+
+1. Download from [lmstudio.ai](https://lmstudio.ai/)
+2. Install and launch the application
+3. Start the local server (usually at `http://localhost:1234`)
+4. Verify the server is running from LM Studio's interface
+
+**Note:** You can switch between providers anytime in VaultPilot settings.
 
 ---
 
@@ -125,17 +147,17 @@ Go to **Settings → VaultPilot**:
 
 ### Settings Overview
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| **LLM Provider** | `ollama` | Choose between Ollama or LM Studio |
-| **Ollama URL** | `http://localhost:11434` | Base URL for Ollama API |
-| **LM Studio URL** | `http://localhost:1234` | Base URL for LM Studio API |
-| **Max Prompt Tokens** | `8192` | Hard cap for input tokens (must be > reserved tokens) |
-| **Reserved Response Tokens** | `512` | Tokens set aside for model's response |
-| **Recent Messages to Keep** | `6` | Target verbatim messages during compaction |
-| **Min Recent Messages** | `2` | Minimum messages preserved in edge cases |
-| **Default Chat Model** | *(empty)* | Preselect model in chat dropdown |
-| **Default Edit Model** | *(empty)* | Preselect model in inline edit modal |
+| Setting                      | Default                  | Description                                           |
+| ---------------------------- | ------------------------ | ----------------------------------------------------- |
+| **LLM Provider**             | `ollama`                 | Choose between Ollama or LM Studio                    |
+| **Ollama URL**               | `http://localhost:11434` | Base URL for Ollama API                               |
+| **LM Studio URL**            | `http://localhost:1234`  | Base URL for LM Studio API                            |
+| **Max Prompt Tokens**        | `8192`                   | Hard cap for input tokens (must be > reserved tokens) |
+| **Reserved Response Tokens** | `512`                    | Tokens set aside for model's response                 |
+| **Recent Messages to Keep**  | `6`                      | Target verbatim messages during compaction            |
+| **Min Recent Messages**      | `2`                      | Minimum messages preserved in edge cases              |
+| **Default Chat Model**       | _(empty)_                | Preselect model in chat dropdown                      |
+| **Default Edit Model**       | _(empty)_                | Preselect model in inline edit modal                  |
 
 ### Quick Actions (Customizable Presets)
 
@@ -249,17 +271,20 @@ src/
 ## 🗺️ Roadmap
 
 ### v0.2 — Enhanced Context Control
+
 - [ ] Saved scopes (named folder/tag/backlink filters)
 - [ ] "Why these sources?" explanations (tooltips with rationale)
 - [ ] Multi-chunk partial Apply in Suggestions sandbox
 - [ ] Async operation cancellation
 
 ### v0.3 — Semantic Search
+
 - [ ] On-device embeddings (Nomic/Ollama)
 - [ ] Hybrid ranking: BM25 + semantic + graph signals
 - [ ] Embedding cache management
 
 ### v0.4 — Advanced Features
+
 - [ ] Multi-note refactor suggestions
 - [ ] Plugin API for third-party integrations
 - [ ] Usage metrics dashboard (local, opt-in)
@@ -294,7 +319,7 @@ Contributions welcome! Here's how to help:
 
 ## 📄 License
 
-MIT License — see [LICENSE](LICENSE) for details.
+Apache 2.0 — see [LICENSE](LICENSE) for details.
 
 ---
 
