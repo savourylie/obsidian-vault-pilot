@@ -9,6 +9,11 @@ interface OllamaStreamResponse {
 	created_at: string;
 	response: string;
 	done: boolean;
+	eval_count?: number;
+	eval_duration?: number;
+	prompt_eval_count?: number;
+	prompt_eval_duration?: number;
+	total_duration?: number;
 }
 
 /**
@@ -64,6 +69,7 @@ export class OllamaAdapter implements LLMAdapter {
 		const model = options?.model ?? this.defaultModel;
 		const temperature = options?.temperature ?? 0.7;
 		const signal = options?.signal;
+		const onStats = options?.onStats;
 
 		const response = await fetch(`${this.baseUrl}/api/generate`, {
 			method: 'POST',
@@ -89,6 +95,7 @@ export class OllamaAdapter implements LLMAdapter {
 		const reader = response.body.getReader();
 		const decoder = new TextDecoder();
 		let buffer = '';
+		const startTime = Date.now();
 
 		try {
 			while (true) {
@@ -109,6 +116,23 @@ export class OllamaAdapter implements LLMAdapter {
 							onChunk(json.response);
 						}
 						if (json.done) {
+							// Extract token stats from final response
+							if (onStats && json.eval_count && json.eval_duration) {
+								const tokensPerSecond = (json.eval_count / json.eval_duration) * 1e9;
+								onStats({
+									tokenCount: json.eval_count,
+									tokensPerSecond
+								});
+							} else if (onStats) {
+								// Fallback: estimate from elapsed time if eval_duration not available
+								const elapsedMs = Date.now() - startTime;
+								const estimatedTokens = json.eval_count || 0;
+								const tokensPerSecond = estimatedTokens > 0 ? (estimatedTokens / elapsedMs) * 1000 : 0;
+								onStats({
+									tokenCount: estimatedTokens,
+									tokensPerSecond
+								});
+							}
 							return; // Stream complete
 						}
 					} catch (err) {

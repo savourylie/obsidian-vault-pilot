@@ -3,10 +3,16 @@
  * This ensures a consistent contract across different providers (Ollama, OpenAI, Claude, etc.).
  */
 
+export interface StreamStats {
+	tokenCount: number;
+	tokensPerSecond: number;
+}
+
 export interface StreamOptions {
 	model?: string;
 	temperature?: number;
 	signal?: AbortSignal;
+	onStats?: (stats: StreamStats) => void;
 }
 
 export interface GenerateOptions {

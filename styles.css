@@ -76,6 +76,7 @@
 
 .vp-section--chat {
 	flex: 1;
+	min-height: 0;
 	background: var(--vp-slate-200, var(--background-secondary-alt, var(--background-secondary)));
 }
 
@@ -673,6 +674,7 @@
 .vp-chat-modelbar {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	gap: 8px;
 	padding: 2px 4px;
 }
@@ -690,6 +692,12 @@
 	font-size: var(--font-ui-small);
 }
 .vp-model-select:focus { outline: none; border-color: var(--interactive-accent); box-shadow: 0 0 0 2px var(--interactive-accent); }
+.vp-token-stats {
+	font-size: var(--font-ui-smaller);
+	color: var(--vp-text-muted);
+	margin-left: auto;
+	font-variant-numeric: tabular-nums;
+}
 
 /* VaultPilot — Animation Performance */
 

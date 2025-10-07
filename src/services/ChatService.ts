@@ -1,4 +1,4 @@
-import { LLMAdapter } from '../types/llm';
+import { LLMAdapter, StreamStats } from '../types/llm';
 import { ChatMessage } from '../types/chat';
 import { SessionManager } from './SessionManager';
 
@@ -62,11 +62,13 @@ export class ChatService {
 	 * @param userMessage - The user's message
 	 * @param context - Optional context (e.g., current document content)
 	 * @param onChunk - Callback for each chunk of the response
+	 * @param onStats - Optional callback for token statistics
 	 */
 	async sendMessage(
 		userMessage: string,
 		context: string,
-		onChunk: (chunk: string) => void
+		onChunk: (chunk: string) => void,
+		onStats?: (stats: StreamStats) => void
 	): Promise<void> {
 		// Add user message to history
 		this.messages.push({ role: 'user', content: userMessage });
@@ -82,7 +84,10 @@ export class ChatService {
 		await this.adapter.stream(prompt, (chunk) => {
 			responseChunks.push(chunk);
 			onChunk(chunk);
-		}, { model: this.currentModel || undefined });
+		}, {
+			model: this.currentModel || undefined,
+			onStats
+		});
 
 		// Add assistant response to history
 		const fullResponse = responseChunks.join('');

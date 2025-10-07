@@ -103,8 +103,27 @@ export class LMStudioAdapter implements LLMAdapter {
 	): Promise<void> {
 		const model = options?.model ?? this.defaultModel;
 		const temperature = options?.temperature ?? 0.7;
+		const onStats = options?.onStats;
+
 		// CORS in Obsidian prevents fetch streaming for LM Studio. Use non-streaming via requestUrl and emit once.
+		const startTime = Date.now();
 		const full = await this.generate(prompt, { model, temperature });
-		if (full) onChunk(full);
+
+		if (full) {
+			onChunk(full);
+
+			// Calculate stats based on character estimation
+			if (onStats) {
+				const elapsedMs = Date.now() - startTime;
+				// Rough estimate: ~4 characters per token
+				const estimatedTokens = Math.ceil(full.length / 4);
+				const tokensPerSecond = elapsedMs > 0 ? (estimatedTokens / elapsedMs) * 1000 : 0;
+
+				onStats({
+					tokenCount: estimatedTokens,
+					tokensPerSecond
+				});
+			}
+		}
 	}
 }

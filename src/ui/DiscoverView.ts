@@ -19,6 +19,7 @@ export class DiscoverView extends ItemView {
 	private chatMessagesEl: HTMLElement | null = null;
 	private chatInputEl: HTMLTextAreaElement | null = null;
 	private modelSelectEl: HTMLSelectElement | null = null;
+	private tokenStatsEl: HTMLElement | null = null;
 	private sessionManager: SessionManager | null = null;
 	private sessionDropdown: HTMLElement | null = null;
 	private onSessionSave: (() => Promise<void>) | null = null;
@@ -489,7 +490,14 @@ export class DiscoverView extends ItemView {
 				this.chatService.setModel(selected);
 				try { localStorage.setItem('vp-selected-chat-model', selected); } catch {}
 			}
+			// Clear token stats when model changes
+			if (this.tokenStatsEl) {
+				this.tokenStatsEl.textContent = '';
+			}
 		});
+
+		// Token stats display
+		this.tokenStatsEl = bar.createEl('span', { cls: 'vp-token-stats', text: '' });
 
 		// Load models asynchronously
 		this.loadAvailableModels();
@@ -610,6 +618,11 @@ export class DiscoverView extends ItemView {
 				assistantMsg?.setAttribute('data-raw-content', accumulatedContent);
 				this.renderMarkdownContent(assistantContent, accumulatedContent);
 				this.smoothScrollToBottom();
+			}, (stats) => {
+				// Update token stats display
+				if (this.tokenStatsEl) {
+					this.tokenStatsEl.textContent = `${stats.tokensPerSecond.toFixed(1)} tok/s`;
+				}
 			});
 
 			// Save session after message is complete
