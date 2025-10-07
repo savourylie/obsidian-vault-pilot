@@ -7,6 +7,7 @@ export interface ChatServiceOptions {
 	reservedResponseTokens?: number;
 	recentMessagesToKeep?: number;
 	minRecentMessagesToKeep?: number;
+	systemPrompt?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ export class ChatService {
 			reservedResponseTokens: options?.reservedResponseTokens ?? 512,
 			recentMessagesToKeep: options?.recentMessagesToKeep ?? 6,
 			minRecentMessagesToKeep: options?.minRecentMessagesToKeep ?? 2,
+			systemPrompt: options?.systemPrompt ?? 'You are a helpful assistant.',
 		};
 	}
 
@@ -187,7 +189,7 @@ export class ChatService {
 
 		// Add context if we have any
 		if (trimmedContext.length > 0) {
-			prompt += 'You are a helpful assistant. You have access to the following document:\n\n';
+			prompt += `${this.options.systemPrompt} You have access to the following document:\n\n`;
 			prompt += '--- BEGIN DOCUMENT ---\n';
 			prompt += trimmedContext;
 			prompt += '\n--- END DOCUMENT ---\n\n';

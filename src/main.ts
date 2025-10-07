@@ -30,6 +30,7 @@ interface SerendipityPluginSettings {
 	minRecentMessagesToKeep: number;
 	quickActions: QuickActionsConfig;
 	systemPrompt: string;
+	chatSystemPrompt: string;
 	defaultChatModel: string;
 	defaultEditModel: string;
 	// Tag suggestion settings (Ticket 39)
@@ -58,6 +59,7 @@ const DEFAULT_SETTINGS: SerendipityPluginSettings = {
 		translate: 'Translate this text to Spanish.',
 	},
 	systemPrompt: 'You are an AI writing assistant for Obsidian. Your task is to help the user edit their note.',
+	chatSystemPrompt: 'You are a helpful assistant for Obsidian. Help the user understand and work with their notes.',
 	defaultChatModel: 'gemma3n:e2b',
 	defaultEditModel: 'gemma3n:e2b',
 	tagSuggestions: {
@@ -107,6 +109,7 @@ export default class SerendipityPlugin extends Plugin {
 					reservedResponseTokens: this.settings.reservedResponseTokens,
 					recentMessagesToKeep: this.settings.recentMessagesToKeep,
 					minRecentMessagesToKeep: this.settings.minRecentMessagesToKeep,
+					systemPrompt: this.settings.chatSystemPrompt,
 				},
 				this.settings.defaultChatModel,
 				this.settings.provider,
@@ -839,6 +842,25 @@ class SerendipitySettingTab extends PluginSettingTab {
 
 					updateProviderVisibility();
 
+					container.createEl('h3', {text: 'System Prompt'});
+
+					new Setting(container)
+						.setName('Chat System Prompt')
+						.setDesc('Instructions prepended to chat conversations. Defines the assistant\'s role and behavior.');
+
+					const chatSystemPromptTextarea = container.createEl('textarea', {
+						attr: {
+							rows: '6',
+							placeholder: 'You are a helpful assistant for Obsidian. Help the user understand and work with their notes.',
+							style: 'width: 100%; margin-bottom: 18px; padding: 8px; font-family: var(--font-monospace); font-size: 0.9em;'
+						}
+					});
+					chatSystemPromptTextarea.value = this.plugin.settings.chatSystemPrompt || '';
+					chatSystemPromptTextarea.addEventListener('change', async () => {
+						this.plugin.settings.chatSystemPrompt = chatSystemPromptTextarea.value;
+						await this.plugin.saveSettings();
+					});
+
 					container.createEl('h3', {text: 'Token Window'});
 
 					new Setting(container)
@@ -936,14 +958,20 @@ class SerendipitySettingTab extends PluginSettingTab {
 				content_generator: (container) => {
 					new Setting(container)
 						.setName('System Prompt')
-						.setDesc('Prepended to every Edit with AI request. Keep concise; you can override style in the instruction.')
-						.addText(text => text
-							.setPlaceholder('You are an AI writing assistant for Obsidian...')
-							.setValue(this.plugin.settings.systemPrompt || '')
-							.onChange(async (value) => {
-								this.plugin.settings.systemPrompt = value;
-								await this.plugin.saveSettings();
-							}));
+						.setDesc('Prepended to every Edit with AI request. Keep concise; you can override style in the instruction.');
+
+					const editSystemPromptTextarea = container.createEl('textarea', {
+						attr: {
+							rows: '6',
+							placeholder: 'You are an AI writing assistant for Obsidian. Your task is to help the user edit their note.',
+							style: 'width: 100%; margin-bottom: 18px; padding: 8px; font-family: var(--font-monospace); font-size: 0.9em;'
+						}
+					});
+					editSystemPromptTextarea.value = this.plugin.settings.systemPrompt || '';
+					editSystemPromptTextarea.addEventListener('change', async () => {
+						this.plugin.settings.systemPrompt = editSystemPromptTextarea.value;
+						await this.plugin.saveSettings();
+					});
 
 					new Setting(container)
 						.setName('Default Edit Model')
