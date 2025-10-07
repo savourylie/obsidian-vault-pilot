@@ -10,6 +10,7 @@ import { createAdapter } from './llm/adapterFactory';
 import { ContextAssembler } from './services/ContextAssembler';
 import { SessionManager } from './services/SessionManager';
 import { ChatSessionsData } from './types/chat';
+import { createTabs, Tabs } from './ui/SettingsTabs';
 
 interface QuickActionsConfig {
 	rewrite: string;
@@ -592,171 +593,22 @@ class SerendipitySettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-		display(): void {
-			const {containerEl} = this;
+	display(): void {
+		const {containerEl} = this;
 
 		containerEl.empty();
+		containerEl.createEl('h2', {text: 'VaultPilot Settings'});
 
-		// Debounce handle for model reloads when base URL changes
+		// Shared state and functions accessible across all tabs
 		let modelsReloadTimer: number | null = null;
-
-			containerEl.createEl('h2', {text: 'VaultPilot Settings'});
-
-		// Provider selector
-		new Setting(containerEl)
-			.setName('LLM Provider')
-			.setDesc('Choose which local LLM server to use.')
-			.addDropdown((drop: any) => {
-				drop.addOption('ollama', 'Ollama');
-				drop.addOption('lmstudio', 'LM Studio');
-				drop.setValue(this.plugin.settings.provider || 'ollama');
-				drop.onChange(async (value: string) => {
-					this.plugin.settings.provider = (value === 'lmstudio') ? 'lmstudio' : 'ollama';
-					await this.plugin.saveSettings();
-					// Update DiscoverView instances with new provider
-					this.plugin.refreshAllDiscoverViewProviderSettings();
-					// Update visible base URL field
-					try { updateProviderVisibility(); } catch {}
-					// Debounce reload of available models (provider-aware fetch in Ticket 042)
-					if (modelsReloadTimer) window.clearTimeout(modelsReloadTimer);
-					modelsReloadTimer = window.setTimeout(async () => {
-						try {
-							// @ts-ignore - defined within display scope
-							await loadModelsAndPopulate(true);
-						} catch {}
-					}, 600);
-				});
-			});
-
-		const ollamaUrlSetting = new Setting(containerEl)
-			.setName('Ollama Base URL')
-			.setDesc('The base URL for the Ollama API.')
-			.addText(text => text
-				.setPlaceholder('http://localhost:11434')
-				.setValue(this.plugin.settings.ollamaUrl)
-				.onChange(async (value) => {
-					this.plugin.settings.ollamaUrl = value;
-					await this.plugin.saveSettings();
-					// Update DiscoverView instances with new URL
-					this.plugin.refreshAllDiscoverViewProviderSettings();
-					// Debounce reload of available models for dropdowns
-					if (modelsReloadTimer) {
-						window.clearTimeout(modelsReloadTimer);
-					}
-					modelsReloadTimer = window.setTimeout(async () => {
-						try {
-							// @ts-ignore - defined within display scope
-							await loadModelsAndPopulate(true);
-						} catch {}
-					}, 600);
-				}));
-
-		// LM Studio Base URL (shown when provider = LM Studio)
-		const lmStudioUrlSetting = new Setting(containerEl)
-			.setName('LM Studio Base URL')
-			.setDesc('Base URL for LM Studio Local Server (OpenAI-compatible).')
-			.addText(text => text
-				.setPlaceholder('http://localhost:1234')
-				.setValue(this.plugin.settings.lmStudioUrl || 'http://localhost:1234')
-				.onChange(async (value) => {
-					this.plugin.settings.lmStudioUrl = value;
-					await this.plugin.saveSettings();
-					// Update DiscoverView instances with new URL
-					this.plugin.refreshAllDiscoverViewProviderSettings();
-					// Debounce reload of available models for dropdowns
-					if (modelsReloadTimer) {
-						window.clearTimeout(modelsReloadTimer);
-					}
-					modelsReloadTimer = window.setTimeout(async () => {
-						try {
-							// @ts-ignore - defined within display scope
-							await loadModelsAndPopulate(true);
-						} catch {}
-					}, 600);
-				}));
-
-		const updateProviderVisibility = () => {
-			const isLM = this.plugin.settings.provider === 'lmstudio';
-			(ollamaUrlSetting as any)?.settingEl && ((ollamaUrlSetting as any).settingEl.style.display = isLM ? 'none' : '');
-			(lmStudioUrlSetting as any)?.settingEl && ((lmStudioUrlSetting as any).settingEl.style.display = isLM ? '' : 'none');
-		};
-
-		updateProviderVisibility();
-
-		containerEl.createEl('h3', {text: 'Chat Token Window Settings'});
-
-		new Setting(containerEl)
-			.setName('Max Prompt Tokens')
-			.setDesc('Maximum number of tokens allowed in the chat prompt (hard cap for input tokens).')
-			.addText(text => text
-				.setPlaceholder('8192')
-				.setValue(String(this.plugin.settings.maxPromptTokens))
-				.onChange(async (value) => {
-					const num = parseInt(value, 10);
-					if (!isNaN(num) && num >= 1) {
-						this.plugin.settings.maxPromptTokens = num;
-						// Validate that reserved < max
-						if (this.plugin.settings.reservedResponseTokens >= num) {
-							this.plugin.settings.reservedResponseTokens = Math.max(1, num - 1);
-						}
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Reserved Response Tokens')
-			.setDesc('Number of tokens reserved for the model\'s response (must be less than max prompt tokens).')
-			.addText(text => text
-				.setPlaceholder('512')
-				.setValue(String(this.plugin.settings.reservedResponseTokens))
-				.onChange(async (value) => {
-					const num = parseInt(value, 10);
-					if (!isNaN(num) && num >= 1 && num < this.plugin.settings.maxPromptTokens) {
-						this.plugin.settings.reservedResponseTokens = num;
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Recent Messages to Keep')
-			.setDesc('Target number of recent messages to keep verbatim in chat history.')
-			.addText(text => text
-				.setPlaceholder('6')
-				.setValue(String(this.plugin.settings.recentMessagesToKeep))
-				.onChange(async (value) => {
-					const num = parseInt(value, 10);
-					if (!isNaN(num) && num >= 1) {
-						this.plugin.settings.recentMessagesToKeep = num;
-						// Validate that min <= recent
-						if (this.plugin.settings.minRecentMessagesToKeep > num) {
-							this.plugin.settings.minRecentMessagesToKeep = num;
-						}
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Min Recent Messages to Keep')
-			.setDesc('Minimum number of recent messages to preserve before compressing (must be ≤ recent messages to keep).')
-			.addText(text => text
-				.setPlaceholder('2')
-				.setValue(String(this.plugin.settings.minRecentMessagesToKeep))
-				.onChange(async (value) => {
-					const num = parseInt(value, 10);
-					if (!isNaN(num) && num >= 1 && num <= this.plugin.settings.recentMessagesToKeep) {
-						this.plugin.settings.minRecentMessagesToKeep = num;
-						await this.plugin.saveSettings();
-					}
-				}));
-
-
-		// Placeholders to hold dropdown references and help messages
 		let chatModelDropdown: any = null;
 		let editModelDropdown: any = null;
 		let chatHelpEl: HTMLElement | null = null;
 		let editHelpEl: HTMLElement | null = null;
 		let chatReloadBtn: any = null;
 		let editReloadBtn: any = null;
+		let ollamaUrlSetting: any = null;
+		let lmStudioUrlSetting: any = null;
 
 		const showModelsWarning = (el: HTMLElement) => {
 			el.empty();
@@ -776,65 +628,6 @@ class SerendipitySettingTab extends PluginSettingTab {
 
 		const clearWarning = (el: HTMLElement) => { el.empty(); };
 
-		new Setting(containerEl)
-			.setName('Default Chat Model')
-			.setDesc('Model preselected in Discover chat (overrideable from the chat dropdown).')
-			.addDropdown((drop: any) => {
-				chatModelDropdown = drop;
-				drop.addOption('', 'Loading models…');
-				drop.setValue('');
-				drop.onChange(async (value: string) => {
-					this.plugin.settings.defaultChatModel = value;
-					await this.plugin.saveSettings();
-				});
-			})
-			.addExtraButton((btn: any) => {
-				chatReloadBtn = btn;
-				btn.setIcon?.('refresh-ccw');
-				btn.setTooltip?.('Reload models');
-				btn.onClick?.(async () => {
-					try { await loadModelsAndPopulate(true); } catch {}
-				});
-			});
-		chatHelpEl = containerEl.createEl('div');
-
-		containerEl.createEl('h3', { text: 'Edit with AI' });
-
-		new Setting(containerEl)
-			.setName('Shared System Prompt')
-			.setDesc('Prepended to every Edit with AI request. Keep concise; you can override style in the instruction.')
-			.addText(text => text
-				.setPlaceholder('You are an AI writing assistant for Obsidian...')
-				.setValue(this.plugin.settings.systemPrompt || '')
-				.onChange(async (value) => {
-					this.plugin.settings.systemPrompt = value;
-					await this.plugin.saveSettings();
-				}));
-
-
-		new Setting(containerEl)
-			.setName('Default Edit Model')
-			.setDesc('Model preselected in the Edit with AI modal (overrideable from the dropdown).')
-			.addDropdown((drop: any) => {
-				editModelDropdown = drop;
-				drop.addOption('', 'Loading models…');
-				drop.setValue('');
-				drop.onChange(async (value: string) => {
-					this.plugin.settings.defaultEditModel = value;
-					await this.plugin.saveSettings();
-				});
-			})
-			.addExtraButton((btn: any) => {
-				editReloadBtn = btn;
-				btn.setIcon?.('refresh-ccw');
-				btn.setTooltip?.('Reload models');
-				btn.onClick?.(async () => {
-					try { await loadModelsAndPopulate(); } catch {}
-				});
-			});
-		editHelpEl = containerEl.createEl('div');
-
-		// Fetch models from Ollama and populate dropdowns
 		const setReloadButtonsLoading = (loading: boolean) => {
 			if (chatReloadBtn && chatReloadBtn.setDisabled) chatReloadBtn.setDisabled(loading);
 			if (editReloadBtn && editReloadBtn.setDisabled) editReloadBtn.setDisabled(loading);
@@ -962,136 +755,355 @@ class SerendipitySettingTab extends PluginSettingTab {
 			setReloadButtonsLoading(false);
 		};
 
-		// Load once on open
+		const updateProviderVisibility = () => {
+			const isLM = this.plugin.settings.provider === 'lmstudio';
+			(ollamaUrlSetting as any)?.settingEl && ((ollamaUrlSetting as any).settingEl.style.display = isLM ? 'none' : '');
+			(lmStudioUrlSetting as any)?.settingEl && ((lmStudioUrlSetting as any).settingEl.style.display = isLM ? '' : 'none');
+		};
+
+		// Create tabs
+		const tabs: Tabs = {
+			'chat': {
+				title: 'Chat',
+				icon: 'message-circle',
+				content_generator: (container) => {
+					// Provider selector
+					new Setting(container)
+						.setName('LLM Provider')
+						.setDesc('Choose which local LLM server to use.')
+						.addDropdown((drop: any) => {
+							drop.addOption('ollama', 'Ollama');
+							drop.addOption('lmstudio', 'LM Studio');
+							drop.setValue(this.plugin.settings.provider || 'ollama');
+							drop.onChange(async (value: string) => {
+								this.plugin.settings.provider = (value === 'lmstudio') ? 'lmstudio' : 'ollama';
+								await this.plugin.saveSettings();
+								// Update DiscoverView instances with new provider
+								this.plugin.refreshAllDiscoverViewProviderSettings();
+								// Update visible base URL field
+								try { updateProviderVisibility(); } catch {}
+								// Debounce reload of available models
+								if (modelsReloadTimer) window.clearTimeout(modelsReloadTimer);
+								modelsReloadTimer = window.setTimeout(async () => {
+									try {
+										await loadModelsAndPopulate(true);
+									} catch {}
+								}, 600);
+							});
+						});
+
+					ollamaUrlSetting = new Setting(container)
+						.setName('Ollama Base URL')
+						.setDesc('The base URL for the Ollama API.')
+						.addText(text => text
+							.setPlaceholder('http://localhost:11434')
+							.setValue(this.plugin.settings.ollamaUrl)
+							.onChange(async (value) => {
+								this.plugin.settings.ollamaUrl = value;
+								await this.plugin.saveSettings();
+								// Update DiscoverView instances with new URL
+								this.plugin.refreshAllDiscoverViewProviderSettings();
+								// Debounce reload of available models for dropdowns
+								if (modelsReloadTimer) {
+									window.clearTimeout(modelsReloadTimer);
+								}
+								modelsReloadTimer = window.setTimeout(async () => {
+									try {
+										await loadModelsAndPopulate(true);
+									} catch {}
+								}, 600);
+							}));
+
+					// LM Studio Base URL (shown when provider = LM Studio)
+					lmStudioUrlSetting = new Setting(container)
+						.setName('LM Studio Base URL')
+						.setDesc('Base URL for LM Studio Local Server (OpenAI-compatible).')
+						.addText(text => text
+							.setPlaceholder('http://localhost:1234')
+							.setValue(this.plugin.settings.lmStudioUrl || 'http://localhost:1234')
+							.onChange(async (value) => {
+								this.plugin.settings.lmStudioUrl = value;
+								await this.plugin.saveSettings();
+								// Update DiscoverView instances with new URL
+								this.plugin.refreshAllDiscoverViewProviderSettings();
+								// Debounce reload of available models for dropdowns
+								if (modelsReloadTimer) {
+									window.clearTimeout(modelsReloadTimer);
+								}
+								modelsReloadTimer = window.setTimeout(async () => {
+									try {
+										await loadModelsAndPopulate(true);
+									} catch {}
+								}, 600);
+							}));
+
+					updateProviderVisibility();
+
+					container.createEl('h3', {text: 'Token Window'});
+
+					new Setting(container)
+						.setName('Max Prompt Tokens')
+						.setDesc('Maximum number of tokens allowed in the chat prompt (hard cap for input tokens).')
+						.addText(text => text
+							.setPlaceholder('8192')
+							.setValue(String(this.plugin.settings.maxPromptTokens))
+							.onChange(async (value) => {
+								const num = parseInt(value, 10);
+								if (!isNaN(num) && num >= 1) {
+									this.plugin.settings.maxPromptTokens = num;
+									// Validate that reserved < max
+									if (this.plugin.settings.reservedResponseTokens >= num) {
+										this.plugin.settings.reservedResponseTokens = Math.max(1, num - 1);
+									}
+									await this.plugin.saveSettings();
+								}
+							}));
+
+					new Setting(container)
+						.setName('Reserved Response Tokens')
+						.setDesc('Number of tokens reserved for the model\'s response (must be less than max prompt tokens).')
+						.addText(text => text
+							.setPlaceholder('512')
+							.setValue(String(this.plugin.settings.reservedResponseTokens))
+							.onChange(async (value) => {
+								const num = parseInt(value, 10);
+								if (!isNaN(num) && num >= 1 && num < this.plugin.settings.maxPromptTokens) {
+									this.plugin.settings.reservedResponseTokens = num;
+									await this.plugin.saveSettings();
+								}
+							}));
+
+					new Setting(container)
+						.setName('Recent Messages to Keep')
+						.setDesc('Target number of recent messages to keep verbatim in chat history.')
+						.addText(text => text
+							.setPlaceholder('6')
+							.setValue(String(this.plugin.settings.recentMessagesToKeep))
+							.onChange(async (value) => {
+								const num = parseInt(value, 10);
+								if (!isNaN(num) && num >= 1) {
+									this.plugin.settings.recentMessagesToKeep = num;
+									// Validate that min <= recent
+									if (this.plugin.settings.minRecentMessagesToKeep > num) {
+										this.plugin.settings.minRecentMessagesToKeep = num;
+									}
+									await this.plugin.saveSettings();
+								}
+							}));
+
+					new Setting(container)
+						.setName('Min Recent Messages to Keep')
+						.setDesc('Minimum number of recent messages to preserve before compressing (must be ≤ recent messages to keep).')
+						.addText(text => text
+							.setPlaceholder('2')
+							.setValue(String(this.plugin.settings.minRecentMessagesToKeep))
+							.onChange(async (value) => {
+								const num = parseInt(value, 10);
+								if (!isNaN(num) && num >= 1 && num <= this.plugin.settings.recentMessagesToKeep) {
+									this.plugin.settings.minRecentMessagesToKeep = num;
+									await this.plugin.saveSettings();
+								}
+							}));
+
+					container.createEl('h3', {text: 'Default Model'});
+
+					new Setting(container)
+						.setName('Default Chat Model')
+						.setDesc('Model preselected in Discover chat (overrideable from the chat dropdown).')
+						.addDropdown((drop: any) => {
+							chatModelDropdown = drop;
+							drop.addOption('', 'Loading models…');
+							drop.setValue('');
+							drop.onChange(async (value: string) => {
+								this.plugin.settings.defaultChatModel = value;
+								await this.plugin.saveSettings();
+							});
+						})
+						.addExtraButton((btn: any) => {
+							chatReloadBtn = btn;
+							btn.setIcon?.('refresh-ccw');
+							btn.setTooltip?.('Reload models');
+							btn.onClick?.(async () => {
+								try { await loadModelsAndPopulate(true); } catch {}
+							});
+						});
+					chatHelpEl = container.createEl('div');
+				}
+			},
+			'edit': {
+				title: 'Edit with AI',
+				icon: 'edit',
+				content_generator: (container) => {
+					new Setting(container)
+						.setName('System Prompt')
+						.setDesc('Prepended to every Edit with AI request. Keep concise; you can override style in the instruction.')
+						.addText(text => text
+							.setPlaceholder('You are an AI writing assistant for Obsidian...')
+							.setValue(this.plugin.settings.systemPrompt || '')
+							.onChange(async (value) => {
+								this.plugin.settings.systemPrompt = value;
+								await this.plugin.saveSettings();
+							}));
+
+					new Setting(container)
+						.setName('Default Edit Model')
+						.setDesc('Model preselected in the Edit with AI modal (overrideable from the dropdown).')
+						.addDropdown((drop: any) => {
+							editModelDropdown = drop;
+							drop.addOption('', 'Loading models…');
+							drop.setValue('');
+							drop.onChange(async (value: string) => {
+								this.plugin.settings.defaultEditModel = value;
+								await this.plugin.saveSettings();
+							});
+						})
+						.addExtraButton((btn: any) => {
+							editReloadBtn = btn;
+							btn.setIcon?.('refresh-ccw');
+							btn.setTooltip?.('Reload models');
+							btn.onClick?.(async () => {
+								try { await loadModelsAndPopulate(); } catch {}
+							});
+						});
+					editHelpEl = container.createEl('div');
+
+					container.createEl('h3', { text: 'Quick Action Presets' });
+
+					new Setting(container)
+						.setName('Rewrite Prompt')
+						.setDesc('Default instruction used when clicking Rewrite.')
+						.addText(text => text
+							.setPlaceholder('Rewrite this text to be clearer and more engaging.')
+							.setValue(this.plugin.settings.quickActions.rewrite)
+							.onChange(async (value) => {
+								this.plugin.settings.quickActions.rewrite = value;
+								await this.plugin.saveSettings();
+							}));
+
+					new Setting(container)
+						.setName('Tighten Prompt')
+						.setDesc('Default instruction used when clicking Tighten.')
+						.addText(text => text
+							.setPlaceholder('Make this text more concise while preserving key information.')
+							.setValue(this.plugin.settings.quickActions.tighten)
+							.onChange(async (value) => {
+								this.plugin.settings.quickActions.tighten = value;
+								await this.plugin.saveSettings();
+							}));
+
+					new Setting(container)
+						.setName('Expand Prompt')
+						.setDesc('Default instruction used when clicking Expand.')
+						.addText(text => text
+							.setPlaceholder('Expand this text with more detail and examples.')
+							.setValue(this.plugin.settings.quickActions.expand)
+							.onChange(async (value) => {
+								this.plugin.settings.quickActions.expand = value;
+								await this.plugin.saveSettings();
+							}));
+
+					new Setting(container)
+						.setName('Grammar Prompt')
+						.setDesc('Default instruction used when clicking Grammar.')
+						.addText(text => text
+							.setPlaceholder('Fix grammar, spelling, and punctuation errors.')
+							.setValue(this.plugin.settings.quickActions.grammar)
+							.onChange(async (value) => {
+								this.plugin.settings.quickActions.grammar = value;
+								await this.plugin.saveSettings();
+							}));
+
+					new Setting(container)
+						.setName('Translate Prompt')
+						.setDesc('Default instruction used when clicking Translate.')
+						.addText(text => text
+							.setPlaceholder('Translate this text to Spanish.')
+							.setValue(this.plugin.settings.quickActions.translate)
+							.onChange(async (value) => {
+								this.plugin.settings.quickActions.translate = value;
+								await this.plugin.saveSettings();
+							}));
+				}
+			},
+			'tags': {
+				title: 'Tag Suggestions',
+				icon: 'tag',
+				content_generator: (container) => {
+					new Setting(container)
+						.setName('Use LLM for tag suggestions')
+						.setDesc('Enable LLM-backed tag suggestions; falls back to local keywords when unavailable.')
+						.addToggle((toggle: any) => {
+							toggle.setValue(this.plugin.settings.tagSuggestions?.useLLM !== false);
+							toggle.onChange(async (value: boolean) => {
+								this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+								this.plugin.settings.tagSuggestions.useLLM = !!value;
+								await this.plugin.saveSettings();
+							});
+						});
+
+					new Setting(container)
+						.setName('Min suggestions')
+						.setDesc('Minimum number of tags to propose (default 3).')
+						.addText((text) => text
+							.setPlaceholder('3')
+							.setValue(String(this.plugin.settings.tagSuggestions?.min ?? 3))
+							.onChange(async (value) => {
+								const n = Math.max(1, parseInt(value || '3', 10) || 3);
+								this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+								this.plugin.settings.tagSuggestions.min = n;
+								// Ensure max >= min
+								if ((this.plugin.settings.tagSuggestions.max ?? 5) < n) {
+									this.plugin.settings.tagSuggestions.max = n;
+								}
+								await this.plugin.saveSettings();
+							}));
+
+					new Setting(container)
+						.setName('Max suggestions')
+						.setDesc('Maximum number of tags to propose (default 5).')
+						.addText((text) => text
+							.setPlaceholder('5')
+							.setValue(String(this.plugin.settings.tagSuggestions?.max ?? 5))
+							.onChange(async (value) => {
+								const curMin = this.plugin.settings.tagSuggestions?.min ?? 3;
+								let n = parseInt(value || '5', 10);
+								if (isNaN(n) || n < curMin) n = curMin;
+								this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+								this.plugin.settings.tagSuggestions.max = n;
+								await this.plugin.saveSettings();
+							}));
+
+					new Setting(container)
+						.setName('Confirm before inserting')
+						.setDesc('Show a modal to confirm tags before writing to the note.')
+						.addToggle((toggle: any) => {
+							toggle.setValue(this.plugin.settings.tagSuggestions?.confirmBeforeInsert !== false);
+							toggle.onChange(async (value: boolean) => {
+								this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+								this.plugin.settings.tagSuggestions.confirmBeforeInsert = !!value;
+								await this.plugin.saveSettings();
+							});
+						});
+
+					new Setting(container)
+						.setName('Model override (optional)')
+						.setDesc('Model to use for tag suggestions. Leave empty to use the Default Chat Model.')
+						.addText((text) => text
+							.setPlaceholder('Leave empty for default')
+							.setValue(this.plugin.settings.tagSuggestions?.modelOverride ?? '')
+							.onChange(async (value) => {
+								this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
+								this.plugin.settings.tagSuggestions.modelOverride = value || '';
+								await this.plugin.saveSettings();
+							}));
+				}
+			}
+		};
+
+		// Create the tabs
+		createTabs(containerEl, tabs);
+
+		// Load models once on open
 		loadModelsAndPopulate(false);
-
-		// Reload models when base URL changes
-		// Patch existing Ollama URL setting to also refresh dropdowns
-
-		new Setting(containerEl)
-			.setName('Rewrite Prompt')
-			.setDesc('Default instruction used when clicking Rewrite.')
-			.addText(text => text
-				.setPlaceholder('Rewrite this text to be clearer and more engaging.')
-				.setValue(this.plugin.settings.quickActions.rewrite)
-				.onChange(async (value) => {
-					this.plugin.settings.quickActions.rewrite = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Tighten Prompt')
-			.setDesc('Default instruction used when clicking Tighten.')
-			.addText(text => text
-				.setPlaceholder('Make this text more concise while preserving key information.')
-				.setValue(this.plugin.settings.quickActions.tighten)
-				.onChange(async (value) => {
-					this.plugin.settings.quickActions.tighten = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Expand Prompt')
-			.setDesc('Default instruction used when clicking Expand.')
-			.addText(text => text
-				.setPlaceholder('Expand this text with more detail and examples.')
-				.setValue(this.plugin.settings.quickActions.expand)
-				.onChange(async (value) => {
-					this.plugin.settings.quickActions.expand = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Grammar Prompt')
-			.setDesc('Default instruction used when clicking Grammar.')
-			.addText(text => text
-				.setPlaceholder('Fix grammar, spelling, and punctuation errors.')
-				.setValue(this.plugin.settings.quickActions.grammar)
-				.onChange(async (value) => {
-					this.plugin.settings.quickActions.grammar = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Translate Prompt')
-			.setDesc('Default instruction used when clicking Translate.')
-			.addText(text => text
-				.setPlaceholder('Translate this text to Spanish.')
-				.setValue(this.plugin.settings.quickActions.translate)
-				.onChange(async (value) => {
-					this.plugin.settings.quickActions.translate = value;
-					await this.plugin.saveSettings();
-				}));
-
-		// Tag Suggestions settings
-		containerEl.createEl('h3', { text: 'Tag Suggestions' });
-
-		new Setting(containerEl)
-			.setName('Use LLM for tag suggestions')
-			.setDesc('Enable LLM-backed tag suggestions; falls back to local keywords when unavailable.')
-			.addToggle((toggle: any) => {
-				toggle.setValue(this.plugin.settings.tagSuggestions?.useLLM !== false);
-				toggle.onChange(async (value: boolean) => {
-					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
-					this.plugin.settings.tagSuggestions.useLLM = !!value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('Min suggestions')
-			.setDesc('Minimum number of tags to propose (default 3).')
-			.addText((text) => text
-				.setPlaceholder('3')
-				.setValue(String(this.plugin.settings.tagSuggestions?.min ?? 3))
-				.onChange(async (value) => {
-					const n = Math.max(1, parseInt(value || '3', 10) || 3);
-					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
-					this.plugin.settings.tagSuggestions.min = n;
-					// Ensure max >= min
-					if ((this.plugin.settings.tagSuggestions.max ?? 5) < n) {
-						this.plugin.settings.tagSuggestions.max = n;
-					}
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Max suggestions')
-			.setDesc('Maximum number of tags to propose (default 5).')
-			.addText((text) => text
-				.setPlaceholder('5')
-				.setValue(String(this.plugin.settings.tagSuggestions?.max ?? 5))
-				.onChange(async (value) => {
-					const curMin = this.plugin.settings.tagSuggestions?.min ?? 3;
-					let n = parseInt(value || '5', 10);
-					if (isNaN(n) || n < curMin) n = curMin;
-					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
-					this.plugin.settings.tagSuggestions.max = n;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Confirm before inserting')
-			.setDesc('Show a modal to confirm tags before writing to the note.')
-			.addToggle((toggle: any) => {
-				toggle.setValue(this.plugin.settings.tagSuggestions?.confirmBeforeInsert !== false);
-				toggle.onChange(async (value: boolean) => {
-					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
-					this.plugin.settings.tagSuggestions.confirmBeforeInsert = !!value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('Model override (optional)')
-			.setDesc('Model to use for tag suggestions. Leave empty to use the Default Chat Model.')
-			.addText((text) => text
-				.setPlaceholder('Leave empty for default')
-				.setValue(this.plugin.settings.tagSuggestions?.modelOverride ?? '')
-				.onChange(async (value) => {
-					this.plugin.settings.tagSuggestions = this.plugin.settings.tagSuggestions || { useLLM: true, min: 3, max: 5, confirmBeforeInsert: true, modelOverride: '' };
-					this.plugin.settings.tagSuggestions.modelOverride = value || '';
-					await this.plugin.saveSettings();
-				}));
 	}
 }

@@ -988,3 +988,44 @@
 		will-change: auto;
 	}
 }
+
+/* VaultPilot — Settings Tabs */
+
+.vp-tab-header {
+	border-bottom: 2px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	margin-bottom: 16px;
+}
+
+.vp-tab-header-button {
+	background-color: unset !important;
+	border: none;
+	outline: none;
+	cursor: pointer;
+	padding: 14px 16px;
+	border-radius: 10px 10px 0 0;
+	transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.vp-tab-header-button.vp-tab-active,
+.vp-tab-header-button:hover {
+	background-color: var(--background-modifier-border) !important;
+}
+
+.vp-tab-header-button:active {
+	transform: translateY(1px);
+}
+
+.vp-tab-header-button svg {
+	vertical-align: middle;
+	margin-right: 4px;
+}
+
+.vp-tab-content {
+	display: none;
+	padding: 6px 12px;
+}
+
+.vp-tab-content.vp-tab-active {
+	display: block;
+}
