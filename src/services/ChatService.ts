@@ -32,6 +32,9 @@ export class ChatService {
 			minRecentMessagesToKeep: options?.minRecentMessagesToKeep ?? 2,
 			systemPrompt: options?.systemPrompt ?? 'You are a helpful assistant.',
 		};
+
+		console.log('VaultPilot: ChatService constructor called');
+		console.log('VaultPilot: Received systemPrompt (first 200 chars):', this.options.systemPrompt.slice(0, 200));
 	}
 
 	/**
@@ -187,12 +190,19 @@ export class ChatService {
 		// Build the final prompt
 		let prompt = '';
 
+		// Always add system prompt (whether or not we have context)
+		console.log('VaultPilot: Adding system prompt to LLM request (first 200 chars):', this.options.systemPrompt.slice(0, 200));
+		prompt += this.options.systemPrompt;
+
 		// Add context if we have any
 		if (trimmedContext.length > 0) {
-			prompt += `${this.options.systemPrompt} You have access to the following document:\n\n`;
+			prompt += ' You have access to the following document:\n\n';
 			prompt += '--- BEGIN DOCUMENT ---\n';
 			prompt += trimmedContext;
 			prompt += '\n--- END DOCUMENT ---\n\n';
+		} else {
+			console.log('VaultPilot: No context provided - system prompt will be used without document context');
+			prompt += '\n\n'; // Add spacing after system prompt
 		}
 
 		// Add conversation summary if present

@@ -33,6 +33,7 @@ interface SerendipityPluginSettings {
 	chatSystemPrompt: string;
 	defaultChatModel: string;
 	defaultEditModel: string;
+	defaultLanguage: string;
 	// Tag suggestion settings (Ticket 39)
 	tagSuggestions?: {
 		useLLM: boolean;
@@ -62,6 +63,7 @@ const DEFAULT_SETTINGS: SerendipityPluginSettings = {
 	chatSystemPrompt: 'You are a helpful assistant for Obsidian. Help the user understand and work with their notes.',
 	defaultChatModel: 'gemma3n:e2b',
 	defaultEditModel: 'gemma3n:e2b',
+	defaultLanguage: 'English',
 	tagSuggestions: {
 		useLLM: true,
 		min: 3,
@@ -98,23 +100,31 @@ export default class SerendipityPlugin extends Plugin {
 		// Register the Discover View
 		this.registerView(
 			VIEW_TYPE_DISCOVER,
-			(leaf) => new DiscoverView(
-				leaf,
-				this.retrievalService,
-				this.settings.ollamaUrl,
-				this.sessionManager,
-				() => this.saveSessions(),
-				{
-					maxPromptTokens: this.settings.maxPromptTokens,
-					reservedResponseTokens: this.settings.reservedResponseTokens,
-					recentMessagesToKeep: this.settings.recentMessagesToKeep,
-					minRecentMessagesToKeep: this.settings.minRecentMessagesToKeep,
-					systemPrompt: this.settings.chatSystemPrompt,
-				},
-				this.settings.defaultChatModel,
-				this.settings.provider,
-				this.settings.lmStudioUrl
-			)
+			(leaf) => {
+				console.log('VaultPilot: Creating DiscoverView instance');
+				console.log('VaultPilot: Raw chatSystemPrompt (first 200 chars):', this.settings.chatSystemPrompt.slice(0, 200));
+
+				const interpolatedPrompt = this.interpolateSystemPrompt(this.settings.chatSystemPrompt);
+				console.log('VaultPilot: Interpolated systemPrompt will be passed to ChatService');
+
+				return new DiscoverView(
+					leaf,
+					this.retrievalService,
+					this.settings.ollamaUrl,
+					this.sessionManager,
+					() => this.saveSessions(),
+					{
+						maxPromptTokens: this.settings.maxPromptTokens,
+						reservedResponseTokens: this.settings.reservedResponseTokens,
+						recentMessagesToKeep: this.settings.recentMessagesToKeep,
+						minRecentMessagesToKeep: this.settings.minRecentMessagesToKeep,
+						systemPrompt: interpolatedPrompt,
+					},
+					this.settings.defaultChatModel,
+					this.settings.provider,
+					this.settings.lmStudioUrl
+				);
+			}
 		);
 
 		// Add a ribbon icon for quick access (chat-style icon)
@@ -351,6 +361,37 @@ export default class SerendipityPlugin extends Plugin {
 		this.dataBlob = this.dataBlob || {};
 		(this.dataBlob as any).chatSessions = this.sessionManager.export();
 		await this.saveData(this.dataBlob);
+	}
+
+	/**
+	 * Interpolate template variables in system prompt.
+	 * Supported variables:
+	 * - {{current_date_iso}} - Current date in ISO format (YYYY-MM-DD)
+	 * - {{vault_name}} - Name of the current vault
+	 * - {{default_language}} - Default language from settings
+	 */
+	private interpolateSystemPrompt(template: string): string {
+		console.log('VaultPilot: interpolateSystemPrompt called');
+		console.log('VaultPilot: Input template (first 200 chars):', template.slice(0, 200));
+
+		const now = new Date();
+		const isoDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+		const vaultName = this.app.vault.getName();
+		const language = this.settings.defaultLanguage || 'English';
+
+		console.log('VaultPilot: Interpolation values:');
+		console.log('  - current_date_iso:', isoDate);
+		console.log('  - vault_name:', vaultName);
+		console.log('  - default_language:', language);
+
+		const result = template
+			.replace(/\{\{current_date_iso\}\}/g, isoDate)
+			.replace(/\{\{vault_name\}\}/g, vaultName)
+			.replace(/\{\{default_language\}\}/g, language);
+
+		console.log('VaultPilot: Output result (first 200 chars):', result.slice(0, 200));
+
+		return result;
 	}
 
 	async toggleDiscoverView() {
@@ -842,11 +883,34 @@ class SerendipitySettingTab extends PluginSettingTab {
 
 					updateProviderVisibility();
 
+					container.createEl('h3', {text: 'Default Language'});
+
+					new Setting(container)
+						.setName('Default Language')
+						.setDesc('Language used in {{default_language}} template variable. The assistant will attempt to reply in this language when appropriate.')
+						.addDropdown(dropdown => dropdown
+							.addOption('English', 'English')
+							.addOption('Spanish', 'Spanish')
+							.addOption('French', 'French')
+							.addOption('German', 'German')
+							.addOption('Italian', 'Italian')
+							.addOption('Portuguese', 'Portuguese')
+							.addOption('Chinese', 'Chinese (中文)')
+							.addOption('Japanese', 'Japanese (日本語)')
+							.addOption('Korean', 'Korean (한국어)')
+							.addOption('Russian', 'Russian (Русский)')
+							.addOption('Arabic', 'Arabic (العربية)')
+							.setValue(this.plugin.settings.defaultLanguage)
+							.onChange(async (value) => {
+								this.plugin.settings.defaultLanguage = value;
+								await this.plugin.saveSettings();
+							}));
+
 					container.createEl('h3', {text: 'System Prompt'});
 
 					new Setting(container)
 						.setName('Chat System Prompt')
-						.setDesc('Instructions prepended to chat conversations. Defines the assistant\'s role and behavior.');
+						.setDesc('Instructions prepended to chat conversations. Supports template variables: {{current_date_iso}}, {{vault_name}}, {{default_language}}. These will be replaced with actual values when the chat starts.');
 
 					const chatSystemPromptTextarea = container.createEl('textarea', {
 						attr: {
@@ -859,6 +923,11 @@ class SerendipitySettingTab extends PluginSettingTab {
 					chatSystemPromptTextarea.addEventListener('change', async () => {
 						this.plugin.settings.chatSystemPrompt = chatSystemPromptTextarea.value;
 						await this.plugin.saveSettings();
+					});
+
+					container.createEl('div', {
+						cls: 'setting-item-description',
+						text: '💡 Template variables like {{vault_name}} will be automatically replaced with real values. You can add, edit, or remove these variables as needed.'
 					});
 
 					container.createEl('h3', {text: 'Token Window'});
