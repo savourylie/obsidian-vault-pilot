@@ -417,6 +417,24 @@ export default class SerendipityPlugin extends Plugin {
 		}
 	}
 
+	/**
+	 * Update provider settings in all open DiscoverView instances.
+	 * Called when LLM provider or base URLs change in settings.
+	 */
+	private refreshAllDiscoverViewProviderSettings() {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_DISCOVER);
+		for (const leaf of leaves) {
+			const view = leaf.view as DiscoverView;
+			if (view && view.updateProviderSettings) {
+				view.updateProviderSettings(
+					this.settings.provider,
+					this.settings.ollamaUrl,
+					this.settings.lmStudioUrl
+				);
+			}
+		}
+	}
+
 	handleAIEdit() {
 		console.log('VaultPilot: handleAIEdit called');
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -595,6 +613,8 @@ class SerendipitySettingTab extends PluginSettingTab {
 				drop.onChange(async (value: string) => {
 					this.plugin.settings.provider = (value === 'lmstudio') ? 'lmstudio' : 'ollama';
 					await this.plugin.saveSettings();
+					// Update DiscoverView instances with new provider
+					this.plugin.refreshAllDiscoverViewProviderSettings();
 					// Update visible base URL field
 					try { updateProviderVisibility(); } catch {}
 					// Debounce reload of available models (provider-aware fetch in Ticket 042)
@@ -617,6 +637,8 @@ class SerendipitySettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.ollamaUrl = value;
 					await this.plugin.saveSettings();
+					// Update DiscoverView instances with new URL
+					this.plugin.refreshAllDiscoverViewProviderSettings();
 					// Debounce reload of available models for dropdowns
 					if (modelsReloadTimer) {
 						window.clearTimeout(modelsReloadTimer);
@@ -639,6 +661,8 @@ class SerendipitySettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.lmStudioUrl = value;
 					await this.plugin.saveSettings();
+					// Update DiscoverView instances with new URL
+					this.plugin.refreshAllDiscoverViewProviderSettings();
 					// Debounce reload of available models for dropdowns
 					if (modelsReloadTimer) {
 						window.clearTimeout(modelsReloadTimer);

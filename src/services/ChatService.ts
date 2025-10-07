@@ -44,6 +44,13 @@ export class ChatService {
 	}
 
 	/**
+	 * Update the LLM adapter (e.g., when provider or base URL changes).
+	 */
+	setAdapter(adapter: LLMAdapter) {
+		this.adapter = adapter;
+	}
+
+	/**
 	 * Set the session manager for persistence.
 	 */
 	setSessionManager(sessionManager: SessionManager) {

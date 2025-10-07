@@ -1047,6 +1047,31 @@ export class DiscoverView extends ItemView {
 	}
 
 	/**
+	 * Public method to update provider settings and reload models.
+	 * Called externally when settings change (e.g., from main.ts settings onChange).
+	 */
+	updateProviderSettings(provider: 'ollama' | 'lmstudio', ollamaUrl: string, lmStudioUrl: string) {
+		// Update instance variables
+		this.provider = provider;
+		this.ollamaUrl = ollamaUrl;
+		this.lmStudioUrl = lmStudioUrl;
+
+		// Create new adapter with updated settings
+		const adapter = createAdapter({
+			provider: this.provider,
+			ollamaUrl: this.ollamaUrl,
+			lmStudioUrl: this.lmStudioUrl,
+			defaultModel: this.defaultChatModel || undefined,
+		});
+
+		// Update chat service's adapter
+		this.chatService.setAdapter(adapter);
+
+		// Reload available models with new provider
+		this.loadAvailableModels();
+	}
+
+	/**
 	 * Handle @ mention input detection and popover management.
 	 */
 	private handleAtMentionInput() {
