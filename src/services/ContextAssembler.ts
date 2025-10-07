@@ -5,14 +5,14 @@ export interface ContextConfig {
 	maxSnippets?: number;
 	maxPromptLength?: number;
 	maxSelectionLength?: number;
-	systemPrompt?: string;
+	inlineEditSystemPrompt?: string;
 }
 
 const DEFAULT_CONFIG: Required<ContextConfig> = {
 	maxSnippets: 5,
 	maxPromptLength: 8000,
 	maxSelectionLength: 2000,
-	systemPrompt: 'You are an AI writing assistant for Obsidian. Your task is to help the user edit their note.'
+	inlineEditSystemPrompt: 'You are an AI writing assistant for Obsidian. When editing text, output ONLY the revised content without code fences (```), quotes ("""), or explanations. Match the original\'s language, tone, and markdown formatting.'
 };
 
 /**
@@ -61,7 +61,7 @@ export class ContextAssembler {
 		}
 
 		// Assemble the full prompt
-		const system = this.config.systemPrompt || DEFAULT_CONFIG.systemPrompt;
+		const system = this.config.inlineEditSystemPrompt || DEFAULT_CONFIG.inlineEditSystemPrompt;
 		const prompt = `${system}
 
 Current note: [[${file.basename}]]
