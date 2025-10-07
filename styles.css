@@ -45,8 +45,28 @@
 	font-weight: 600;
 }
 
+.vp-brand-container {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
 .vp-brand-title {
-	color: var(--vp-brand);
+	color: #000;
+	margin: 0;
+}
+
+.theme-dark .vp-brand-title {
+	color: #fff;
+}
+
+.vp-brand-logo {
+	width: 20px;
+	height: 20px;
+	background-image: url("data:image/svg+xml,%3Csvg version='1.1' xmlns='http://www.w3.org/2000/svg' width='308' height='308'%3E%3Cpath d='M0,0 L268,1 L270,2 L270,275 L269,276 L183,276 L183,136 L136,136 L136,51 L88,51 L88,203 L138,203 L138,276 L3,276 L2,275 L1,6 L0,5 Z M187,53 L179,56 L172,62 L168,68 L166,74 L166,86 L170,94 L176,101 L187,106 L198,106 L206,103 L213,97 L213,95 L215,95 L219,87 L219,72 L214,63 L206,56 L198,53 Z' fill='%23010202' transform='translate(18,17)'/%3E%3Cpath d='M0,0 L268,1 L270,2 L270,275 L269,276 L183,276 L183,136 L136,136 L136,51 L88,51 L88,203 L87,203 L87,50 L137,50 L137,135 L184,135 L184,275 L268,275 L268,3 L4,3 L4,275 L137,275 L137,203 L138,203 L138,276 L3,276 L2,275 L1,6 L0,5 Z' fill='%238D8D8D' transform='translate(18,17)'/%3E%3Cpath d='M0,0 L268,1 L268,2 L3,2 L3,275 L2,275 L1,6 L0,5 Z' fill='%23FEFEFE' transform='translate(18,17)'/%3E%3C/svg%3E");
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center;
 }
 
 .vp-body {
@@ -76,6 +96,7 @@
 
 .vp-section--chat {
 	flex: 1;
+	min-height: 0;
 	background: var(--vp-slate-200, var(--background-secondary-alt, var(--background-secondary)));
 }
 
@@ -673,6 +694,7 @@
 .vp-chat-modelbar {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	gap: 8px;
 	padding: 2px 4px;
 }
@@ -690,6 +712,12 @@
 	font-size: var(--font-ui-small);
 }
 .vp-model-select:focus { outline: none; border-color: var(--interactive-accent); box-shadow: 0 0 0 2px var(--interactive-accent); }
+.vp-token-stats {
+	font-size: var(--font-ui-smaller);
+	color: var(--vp-text-muted);
+	margin-left: auto;
+	font-variant-numeric: tabular-nums;
+}
 
 /* VaultPilot — Animation Performance */
 
@@ -987,4 +1015,45 @@
 	.vp-context-chip {
 		will-change: auto;
 	}
+}
+
+/* VaultPilot — Settings Tabs */
+
+.vp-tab-header {
+	border-bottom: 2px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	margin-bottom: 16px;
+}
+
+.vp-tab-header-button {
+	background-color: unset !important;
+	border: none;
+	outline: none;
+	cursor: pointer;
+	padding: 14px 16px;
+	border-radius: 10px 10px 0 0;
+	transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.vp-tab-header-button.vp-tab-active,
+.vp-tab-header-button:hover {
+	background-color: var(--background-modifier-border) !important;
+}
+
+.vp-tab-header-button:active {
+	transform: translateY(1px);
+}
+
+.vp-tab-header-button svg {
+	vertical-align: middle;
+	margin-right: 4px;
+}
+
+.vp-tab-content {
+	display: none;
+	padding: 6px 12px;
+}
+
+.vp-tab-content.vp-tab-active {
+	display: block;
 }

@@ -1,4 +1,4 @@
-import { LLMAdapter } from '../types/llm';
+import { LLMAdapter, StreamStats } from '../types/llm';
 import { ChatMessage } from '../types/chat';
 import { SessionManager } from './SessionManager';
 
@@ -7,6 +7,7 @@ export interface ChatServiceOptions {
 	reservedResponseTokens?: number;
 	recentMessagesToKeep?: number;
 	minRecentMessagesToKeep?: number;
+	systemPrompt?: string;
 }
 
 /**
@@ -29,7 +30,11 @@ export class ChatService {
 			reservedResponseTokens: options?.reservedResponseTokens ?? 512,
 			recentMessagesToKeep: options?.recentMessagesToKeep ?? 6,
 			minRecentMessagesToKeep: options?.minRecentMessagesToKeep ?? 2,
+			systemPrompt: options?.systemPrompt ?? 'You are a helpful assistant.',
 		};
+
+		console.log('VaultPilot: ChatService constructor called');
+		console.log('VaultPilot: Received systemPrompt (first 200 chars):', this.options.systemPrompt.slice(0, 200));
 	}
 
 	/**
@@ -44,6 +49,13 @@ export class ChatService {
 	}
 
 	/**
+	 * Update the LLM adapter (e.g., when provider or base URL changes).
+	 */
+	setAdapter(adapter: LLMAdapter) {
+		this.adapter = adapter;
+	}
+
+	/**
 	 * Set the session manager for persistence.
 	 */
 	setSessionManager(sessionManager: SessionManager) {
@@ -55,11 +67,13 @@ export class ChatService {
 	 * @param userMessage - The user's message
 	 * @param context - Optional context (e.g., current document content)
 	 * @param onChunk - Callback for each chunk of the response
+	 * @param onStats - Optional callback for token statistics
 	 */
 	async sendMessage(
 		userMessage: string,
 		context: string,
-		onChunk: (chunk: string) => void
+		onChunk: (chunk: string) => void,
+		onStats?: (stats: StreamStats) => void
 	): Promise<void> {
 		// Add user message to history
 		this.messages.push({ role: 'user', content: userMessage });
@@ -75,7 +89,10 @@ export class ChatService {
 		await this.adapter.stream(prompt, (chunk) => {
 			responseChunks.push(chunk);
 			onChunk(chunk);
-		}, { model: this.currentModel || undefined });
+		}, {
+			model: this.currentModel || undefined,
+			onStats
+		});
 
 		// Add assistant response to history
 		const fullResponse = responseChunks.join('');
@@ -173,12 +190,19 @@ export class ChatService {
 		// Build the final prompt
 		let prompt = '';
 
+		// Always add system prompt (whether or not we have context)
+		console.log('VaultPilot: Adding system prompt to LLM request (first 200 chars):', this.options.systemPrompt.slice(0, 200));
+		prompt += this.options.systemPrompt;
+
 		// Add context if we have any
 		if (trimmedContext.length > 0) {
-			prompt += 'You are a helpful assistant. You have access to the following document:\n\n';
+			prompt += ' You have access to the following document:\n\n';
 			prompt += '--- BEGIN DOCUMENT ---\n';
 			prompt += trimmedContext;
 			prompt += '\n--- END DOCUMENT ---\n\n';
+		} else {
+			console.log('VaultPilot: No context provided - system prompt will be used without document context');
+			prompt += '\n\n'; // Add spacing after system prompt
 		}
 
 		// Add conversation summary if present
