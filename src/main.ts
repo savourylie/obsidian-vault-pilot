@@ -248,7 +248,11 @@ export default class SerendipityPlugin extends Plugin {
         this.settings.defaultChatModel,
         this.settings.provider,
         this.settings.lmStudioUrl,
-        this.settings.openAIUrl
+        this.settings.openAIUrl,
+        async (model: string) => {
+          this.settings.defaultChatModel = model;
+          await this.saveSettings();
+        }
       );
     });
 
@@ -659,7 +663,8 @@ export default class SerendipityPlugin extends Plugin {
           this.settings.provider,
           this.settings.ollamaUrl,
           this.settings.lmStudioUrl,
-          this.settings.openAIUrl
+          this.settings.openAIUrl,
+          this.settings.defaultChatModel
         );
       }
     }
@@ -1469,6 +1474,7 @@ class SerendipitySettingTab extends PluginSettingTab {
               drop.onChange(async (value: string) => {
                 this.plugin.settings.defaultChatModel = value;
                 await this.plugin.saveSettings();
+                this.plugin.refreshAllDiscoverViewProviderSettings();
               });
             })
             .addExtraButton((btn: any) => {

@@ -37,6 +37,7 @@ export class DiscoverView extends ItemView {
 	private sessionManager: SessionManager | null = null;
 	private sessionDropdown: HTMLElement | null = null;
 	private onSessionSave: (() => Promise<void>) | null = null;
+	private onModelChange: ((model: string) => Promise<void>) | null = null;
 	private typingIndicator: HTMLElement | null = null;
 	private ollamaUrl: string = 'http://localhost:11434';
 	private lmStudioUrl: string = 'http://localhost:1234';
@@ -63,12 +64,14 @@ export class DiscoverView extends ItemView {
 		defaultChatModel?: string,
 		provider?: 'ollama' | 'lmstudio' | 'openai',
 		lmStudioUrl?: string,
-		openAIUrl?: string
+		openAIUrl?: string,
+		onModelChange?: (model: string) => Promise<void>
 	) {
 		super(leaf);
 		this.retrieval = retrieval ?? null;
 		this.sessionManager = sessionManager ?? null;
 		this.onSessionSave = onSessionSave ?? null;
+		this.onModelChange = onModelChange ?? null;
 		this.ollamaUrl = ollamaUrl || 'http://localhost:11434';
 		this.lmStudioUrl = lmStudioUrl || 'http://localhost:1234';
 		this.openAIUrl = openAIUrl || 'http://localhost:8080';
@@ -506,17 +509,22 @@ export class DiscoverView extends ItemView {
 		this.modelSelectEl.appendChild(new Option('Loading models…', '', false, false));
 		this.modelSelectEl.disabled = true;
 
-		this.modelSelectEl.addEventListener('change', () => {
+		this.modelSelectEl.addEventListener('change', async () => {
 			const selected = this.modelSelectEl?.value || '';
 			if (selected) {
 				this.chatService.setModel(selected);
-				try { localStorage.setItem('vp-selected-chat-model', selected); } catch {}
+				this.persistSelectedChatModel(selected);
+				// Sync model change back to plugin settings
+				if (this.onModelChange) {
+					await this.onModelChange(selected);
+				}
 			}
 			// Clear token stats when model changes
 			if (this.tokenStatsEl) {
 				this.tokenStatsEl.textContent = '';
 			}
 		});
+
 
 		// Token stats display
 		this.tokenStatsEl = bar.createEl('span', { cls: 'vp-token-stats', text: '' });
@@ -526,14 +534,19 @@ export class DiscoverView extends ItemView {
 	}
 
 	private async loadAvailableModels() {
-		let models: string[] = [];
 		const provider = this.provider || 'ollama';
+
+		if (!this.modelSelectEl) return;
+
+		let models: string[] = [];
 		const fallback = provider === 'ollama'
 			? ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b']
 			: OPENAI_COMPAT_FALLBACK_MODELS;
 		try {
 			if (provider === 'lmstudio' || provider === 'openai') {
-				const baseUrl = (provider === 'lmstudio' ? this.lmStudioUrl : this.openAIUrl).replace(/\/$/, '');
+				const baseUrl = provider === 'lmstudio'
+					? this.lmStudioUrl.replace(/\/$/, '')
+					: this.openAIUrl.replace(/\/$/, '');
 				let text: string | null = null;
 				try {
 					const r = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
@@ -574,16 +587,12 @@ export class DiscoverView extends ItemView {
 				}
 			}
 		} catch (err) {
-			const friendlySource = provider === 'lmstudio'
-				? 'LM Studio'
-				: provider === 'openai'
-					? 'OpenAI-compatible'
-					: 'Ollama';
+			const friendlySource = provider === 'lmstudio' ? 'LM Studio' : provider === 'openai' ? 'OpenAI-compatible server' : 'Ollama';
 			console.warn(`${friendlySource} model list fetch failed; using fallback list`, err);
 		}
 		if (models.length === 0) models = fallback;
 
-		if (!this.modelSelectEl) return;
+		this.modelSelectEl.style.display = '';
 		this.modelSelectEl.empty();
 		for (const m of models) {
 			this.modelSelectEl.appendChild(new Option(m, m, false, false));
@@ -608,6 +617,12 @@ export class DiscoverView extends ItemView {
 
 		this.modelSelectEl.disabled = false;
 		if (selected) this.chatService.setModel(selected);
+	}
+
+	private persistSelectedChatModel(model: string) {
+		try {
+			localStorage.setItem('vp-selected-chat-model', model);
+		} catch {}
 	}
 
 	private async sendMessage() {
@@ -1094,12 +1109,33 @@ export class DiscoverView extends ItemView {
 	 * Public method to update provider settings and reload models.
 	 * Called externally when settings change (e.g., from main.ts settings onChange).
 	 */
-	updateProviderSettings(provider: 'ollama' | 'lmstudio' | 'openai', ollamaUrl: string, lmStudioUrl: string, openAIUrl: string) {
+	updateProviderSettings(
+		provider: 'ollama' | 'lmstudio' | 'openai',
+		ollamaUrl: string,
+		lmStudioUrl: string,
+		openAIUrl: string,
+		defaultChatModel?: string | null
+	) {
 		// Update instance variables
+		const previousDefault = this.defaultChatModel;
 		this.provider = provider;
 		this.ollamaUrl = ollamaUrl;
 		this.lmStudioUrl = lmStudioUrl;
 		this.openAIUrl = openAIUrl;
+		this.defaultChatModel = defaultChatModel || null;
+
+		// If the user hadn't customized the persisted chat model, align it with the new default
+		if (this.defaultChatModel) {
+			let persisted = '';
+			try {
+				persisted = localStorage.getItem('vp-selected-chat-model')
+					|| localStorage.getItem('vp-selected-model')
+					|| '';
+			} catch {}
+			if (!persisted || persisted === previousDefault) {
+				this.persistSelectedChatModel(this.defaultChatModel);
+			}
+		}
 
 		// Create new adapter with updated settings
 		const adapter = createAdapter({

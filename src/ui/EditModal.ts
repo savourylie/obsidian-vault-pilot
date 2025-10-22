@@ -101,6 +101,12 @@ export class EditModal extends Modal {
 		this.modelSelect = modelRow.createEl('select', { cls: 'vp-model-select' }) as HTMLSelectElement;
 		this.modelSelect.appendChild(new Option('Loading models…', '', false, false));
 		this.modelSelect.disabled = true;
+		if (this.options.provider === 'openai') {
+			modelRow.createEl('span', {
+				cls: 'vp-model-hint',
+				text: 'Uses the default edit model from Settings → VaultPilot.'
+			});
+		}
 		this.modelSelect.addEventListener('change', () => {
 			const m = this.modelSelect?.value || '';
 			try { localStorage.setItem('vp-selected-edit-model', m); } catch {}
@@ -205,80 +211,56 @@ export class EditModal extends Modal {
 			? ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b']
 			: OPENAI_COMPAT_FALLBACK_MODELS;
 		let models: string[] = [];
-		try {
-			if (provider === 'lmstudio') {
-				const baseUrl = (this.options.lmStudioUrl || 'http://localhost:1234').replace(/\/$/, '');
-				let text: string | null = null;
-				try {
-					const r: any = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
-					text = r?.text ?? (r?.json ? JSON.stringify(r.json) : r?.data) ?? null;
-				} catch (_e) {
+		if (provider === 'openai') {
+			const allCandidates = this.options.defaultModel
+				? [this.options.defaultModel, ...OPENAI_COMPAT_FALLBACK_MODELS]
+				: OPENAI_COMPAT_FALLBACK_MODELS;
+			models = Array.from(new Set(allCandidates.filter(Boolean)));
+		} else {
+			try {
+				if (provider === 'lmstudio') {
+					const baseUrl = (this.options.lmStudioUrl || 'http://localhost:1234').replace(/\/$/, '');
+					let text: string | null = null;
 					try {
-						const resp = await fetch(`${baseUrl}/v1/models`);
-						if (resp.ok) text = await resp.text();
-					} catch {}
-				}
+						const r: any = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
+						text = r?.text ?? (r?.json ? JSON.stringify(r.json) : r?.data) ?? null;
+					} catch (_e) {
+						try {
+							const resp = await fetch(`${baseUrl}/v1/models`);
+							if (resp.ok) text = await resp.text();
+						} catch {}
+					}
 
-				if (text) {
-					let data: any = null;
-					try { data = JSON.parse(text); } catch {
-						const start = text.indexOf('{');
-						const end = text.lastIndexOf('}');
-						if (start !== -1 && end !== -1 && end > start) {
-							try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
+					if (text) {
+						let data: any = null;
+						try { data = JSON.parse(text); } catch {
+							const start = text.indexOf('{');
+							const end = text.lastIndexOf('}');
+							if (start !== -1 && end !== -1 && end > start) {
+								try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
+							}
+						}
+						const arr: any[] = Array.isArray(data?.data)
+							? data.data
+							: Array.isArray(data?.models)
+								? data.models
+								: Array.isArray(data)
+									? data
+									: [];
+						models = arr.map((m: any) => (typeof m === 'string' ? m : (m?.id || m?.name || m?.model))).filter(Boolean);
+					}
+				} else {
+					const baseUrl = (this.options.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
+					const resp = await fetch(`${baseUrl}/api/tags`);
+					if (resp.ok) {
+						const data = await resp.json();
+						if (Array.isArray(data?.models)) {
+							models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
 						}
 					}
-					const arr: any[] = Array.isArray(data?.data)
-						? data.data
-						: Array.isArray(data?.models)
-							? data.models
-							: Array.isArray(data)
-								? data
-								: [];
-					models = arr.map((m: any) => (typeof m === 'string' ? m : (m?.id || m?.name || m?.model))).filter(Boolean);
 				}
-			} else if (provider === 'openai') {
-				const baseUrl = (this.options.openAIUrl || 'http://localhost:8080').replace(/\/$/, '');
-				let text: string | null = null;
-				try {
-					const r: any = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
-					text = r?.text ?? (r?.json ? JSON.stringify(r.json) : r?.data) ?? null;
-				} catch (_e) {
-					try {
-						const resp = await fetch(`${baseUrl}/v1/models`);
-						if (resp.ok) text = await resp.text();
-					} catch {}
-				}
-
-				if (text) {
-					let data: any = null;
-					try { data = JSON.parse(text); } catch {
-						const start = text.indexOf('{');
-						const end = text.lastIndexOf('}');
-						if (start !== -1 && end !== -1 && end > start) {
-							try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
-						}
-					}
-					const arr: any[] = Array.isArray(data?.data)
-						? data.data
-						: Array.isArray(data?.models)
-							? data.models
-							: Array.isArray(data)
-								? data
-								: [];
-					models = arr.map((m: any) => (typeof m === 'string' ? m : (m?.id || m?.name || m?.model))).filter(Boolean);
-				}
-			} else {
-				const baseUrl = (this.options.ollamaUrl || 'http://localhost:11434').replace(/\/$/, '');
-				const resp = await fetch(`${baseUrl}/api/tags`);
-				if (resp.ok) {
-					const data = await resp.json();
-					if (Array.isArray(data?.models)) {
-						models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
-					}
-				}
-			}
-		} catch (_) {}
+			} catch (_) {}
+		}
 		if (models.length === 0) models = fallback;
 
 		if (!this.modelSelect) return;
