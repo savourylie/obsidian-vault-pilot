@@ -8,6 +8,20 @@ import anime from 'animejs';
 
 export const VIEW_TYPE_DISCOVER = 'serendipity-discover-view';
 
+const OPENAI_COMPAT_FALLBACK_MODELS = [
+	'gpt-5-chat-latest',
+	'gpt-5-mini',
+	'gpt-5-nano',
+	'gemini-2.5-pro',
+	'gemini-2.5-flash-lite',
+	'grok-4',
+	'grok-4-fast',
+	'grok-code-fast-1',
+	'grok-3-mini',
+	'qwen3-max',
+	'qwen-plus',
+];
+
 export class DiscoverView extends ItemView {
 	private retrieval: RetrievalService | null = null;
 	private contentEl: HTMLElement | null = null;
@@ -26,7 +40,8 @@ export class DiscoverView extends ItemView {
 	private typingIndicator: HTMLElement | null = null;
 	private ollamaUrl: string = 'http://localhost:11434';
 	private lmStudioUrl: string = 'http://localhost:1234';
-	private provider: 'ollama' | 'lmstudio' = 'ollama';
+	private openAIUrl: string = 'http://localhost:8080';
+	private provider: 'ollama' | 'lmstudio' | 'openai' = 'ollama';
 	private defaultChatModel: string | null = null;
 	private contextChipsContainer: HTMLElement | null = null;
 	private atMentionPopover: HTMLElement | null = null;
@@ -46,8 +61,9 @@ export class DiscoverView extends ItemView {
 		onSessionSave?: () => Promise<void>,
 		chatOptions?: ChatServiceOptions,
 		defaultChatModel?: string,
-		provider?: 'ollama' | 'lmstudio',
-		lmStudioUrl?: string
+		provider?: 'ollama' | 'lmstudio' | 'openai',
+		lmStudioUrl?: string,
+		openAIUrl?: string
 	) {
 		super(leaf);
 		this.retrieval = retrieval ?? null;
@@ -55,12 +71,14 @@ export class DiscoverView extends ItemView {
 		this.onSessionSave = onSessionSave ?? null;
 		this.ollamaUrl = ollamaUrl || 'http://localhost:11434';
 		this.lmStudioUrl = lmStudioUrl || 'http://localhost:1234';
+		this.openAIUrl = openAIUrl || 'http://localhost:8080';
 		this.provider = provider || 'ollama';
 		this.defaultChatModel = defaultChatModel || null;
 		const adapter = createAdapter({
 			provider: this.provider,
 			ollamaUrl: this.ollamaUrl,
 			lmStudioUrl: this.lmStudioUrl,
+			openAIUrl: this.openAIUrl,
 			defaultModel: this.defaultChatModel || undefined,
 		});
 		this.chatService = new ChatService(adapter, chatOptions);
@@ -508,12 +526,14 @@ export class DiscoverView extends ItemView {
 	}
 
 	private async loadAvailableModels() {
-		const fallback = ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b'];
 		let models: string[] = [];
 		const provider = this.provider || 'ollama';
+		const fallback = provider === 'ollama'
+			? ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b']
+			: OPENAI_COMPAT_FALLBACK_MODELS;
 		try {
-			if (provider === 'lmstudio') {
-				const baseUrl = this.lmStudioUrl.replace(/\/$/, '');
+			if (provider === 'lmstudio' || provider === 'openai') {
+				const baseUrl = (provider === 'lmstudio' ? this.lmStudioUrl : this.openAIUrl).replace(/\/$/, '');
 				let text: string | null = null;
 				try {
 					const r = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
@@ -544,7 +564,7 @@ export class DiscoverView extends ItemView {
 						.map((m: any) => typeof m === 'string' ? m : (m?.id || m?.name || m?.model))
 						.filter(Boolean);
 				}
-			} else {
+			} else if (provider === 'ollama') {
 				const resp = await fetch(`${this.ollamaUrl.replace(/\/$/, '')}/api/tags`);
 				if (resp.ok) {
 					const data = await resp.json();
@@ -554,7 +574,12 @@ export class DiscoverView extends ItemView {
 				}
 			}
 		} catch (err) {
-			console.warn(`${provider === 'lmstudio' ? 'LM Studio' : 'Ollama'} model list fetch failed; using fallback list`, err);
+			const friendlySource = provider === 'lmstudio'
+				? 'LM Studio'
+				: provider === 'openai'
+					? 'OpenAI-compatible'
+					: 'Ollama';
+			console.warn(`${friendlySource} model list fetch failed; using fallback list`, err);
 		}
 		if (models.length === 0) models = fallback;
 
@@ -645,7 +670,9 @@ export class DiscoverView extends ItemView {
 				if (isConnErr) {
 					const friendly = this.provider === 'lmstudio'
 						? 'Could not connect to LM Studio. Is Local Server enabled?'
-						: 'Could not connect to Ollama. Is it running?';
+						: this.provider === 'openai'
+							? 'Could not connect to the OpenAI-compatible server. Check your base URL.'
+							: 'Could not connect to Ollama. Is it running?';
 					errorContent.textContent = `⚠️ ${friendly}`;
 				} else {
 					errorContent.textContent = 'Error: ' + (msg || 'Unknown error');
@@ -1067,17 +1094,19 @@ export class DiscoverView extends ItemView {
 	 * Public method to update provider settings and reload models.
 	 * Called externally when settings change (e.g., from main.ts settings onChange).
 	 */
-	updateProviderSettings(provider: 'ollama' | 'lmstudio', ollamaUrl: string, lmStudioUrl: string) {
+	updateProviderSettings(provider: 'ollama' | 'lmstudio' | 'openai', ollamaUrl: string, lmStudioUrl: string, openAIUrl: string) {
 		// Update instance variables
 		this.provider = provider;
 		this.ollamaUrl = ollamaUrl;
 		this.lmStudioUrl = lmStudioUrl;
+		this.openAIUrl = openAIUrl;
 
 		// Create new adapter with updated settings
 		const adapter = createAdapter({
 			provider: this.provider,
 			ollamaUrl: this.ollamaUrl,
 			lmStudioUrl: this.lmStudioUrl,
+			openAIUrl: this.openAIUrl,
 			defaultModel: this.defaultChatModel || undefined,
 		});
 

@@ -18,7 +18,7 @@ export class LMStudioAdapter implements LLMAdapter {
 	private baseUrl: string;
 	private defaultModel: string;
 
-	constructor(baseUrl: string = 'http://localhost:1234', defaultModel: string = 'gpt-3.5-turbo') {
+	constructor(baseUrl: string = 'http://localhost:1234', defaultModel: string = 'gpt-5-mini') {
 		this.baseUrl = baseUrl.replace(/\/$/, '');
 		this.defaultModel = defaultModel;
 	}

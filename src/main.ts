@@ -40,9 +40,10 @@ interface QuickActionsConfig {
 }
 
 interface SerendipityPluginSettings {
-  provider: "ollama" | "lmstudio";
+  provider: "ollama" | "lmstudio" | "openai";
   ollamaUrl: string;
   lmStudioUrl: string;
+  openAIUrl: string;
   maxPromptTokens: number;
   reservedResponseTokens: number;
   recentMessagesToKeep: number;
@@ -67,6 +68,7 @@ const DEFAULT_SETTINGS: SerendipityPluginSettings = {
   provider: "ollama",
   ollamaUrl: "http://localhost:11434",
   lmStudioUrl: "http://localhost:1234",
+  openAIUrl: "http://localhost:8080",
   maxPromptTokens: 16384,
   reservedResponseTokens: 2048,
   recentMessagesToKeep: 6,
@@ -245,7 +247,8 @@ export default class SerendipityPlugin extends Plugin {
         },
         this.settings.defaultChatModel,
         this.settings.provider,
-        this.settings.lmStudioUrl
+        this.settings.lmStudioUrl,
+        this.settings.openAIUrl
       );
     });
 
@@ -336,6 +339,7 @@ export default class SerendipityPlugin extends Plugin {
             provider: this.settings.provider || "ollama",
             ollamaUrl: this.settings.ollamaUrl,
             lmStudioUrl: this.settings.lmStudioUrl,
+            openAIUrl: this.settings.openAIUrl,
             defaultModel: model,
           });
           suggestions = await suggestTags(
@@ -360,6 +364,8 @@ export default class SerendipityPlugin extends Plugin {
             const base =
               provider === "lmstudio"
                 ? "Could not connect to LM Studio. Using local fallback."
+                : provider === "openai"
+                ? "Could not connect to the OpenAI-compatible server. Using local fallback."
                 : "Could not connect to Ollama. Using local fallback.";
             new Notice(`⚠️ ${base}`);
           }
@@ -652,7 +658,8 @@ export default class SerendipityPlugin extends Plugin {
         view.updateProviderSettings(
           this.settings.provider,
           this.settings.ollamaUrl,
-          this.settings.lmStudioUrl
+          this.settings.lmStudioUrl,
+          this.settings.openAIUrl
         );
       }
     }
@@ -692,6 +699,7 @@ export default class SerendipityPlugin extends Plugin {
       ollamaUrl: this.settings.ollamaUrl,
       provider: this.settings.provider,
       lmStudioUrl: this.settings.lmStudioUrl,
+      openAIUrl: this.settings.openAIUrl,
       presets: this.settings.quickActions,
       defaultModel: this.settings.defaultEditModel,
       onSubmit: async (instruction, model) => {
@@ -737,6 +745,7 @@ export default class SerendipityPlugin extends Plugin {
         provider: this.settings.provider || "ollama",
         ollamaUrl: this.settings.ollamaUrl,
         lmStudioUrl: this.settings.lmStudioUrl,
+        openAIUrl: this.settings.openAIUrl,
         defaultModel: this.settings.defaultEditModel,
       });
       const chunks: string[] = [];
@@ -783,6 +792,10 @@ export default class SerendipityPlugin extends Plugin {
         if (provider === "lmstudio") {
           new Notice(
             "⚠️ Could not connect to LM Studio. Is Local Server enabled?"
+          );
+        } else if (provider === "openai") {
+          new Notice(
+            "⚠️ Could not connect to the OpenAI-compatible server. Check your base URL."
           );
         } else {
           new Notice("⚠️ Could not connect to Ollama. Is it running?");
@@ -857,11 +870,67 @@ class SerendipitySettingTab extends PluginSettingTab {
     let editReloadBtn: any = null;
     let ollamaUrlSetting: any = null;
     let lmStudioUrlSetting: any = null;
+    let openAIUrlSetting: any = null;
+
+    const STATIC_MODEL_GROUPS: Array<{ label: string; models: string[] }> = [
+      {
+        label: "OpenAI",
+        models: ["gpt-5-chat-latest", "gpt-5-mini", "gpt-5-nano"],
+      },
+      {
+        label: "Gemini",
+        models: ["gemini-2.5-pro", "gemini-2.5-pro", "gemini-2.5-flash-lite"],
+      },
+      {
+        label: "xAI",
+        models: ["grok-4", "grok-4-fast", "grok-code-fast-1", "grok-3-mini"],
+      },
+      {
+        label: "Qwen",
+        models: ["qwen3-max", "qwen-plus"],
+      },
+    ];
+
+    const STATIC_MODEL_LIST = Array.from(
+      new Set(
+        STATIC_MODEL_GROUPS.flatMap((group) => group.models)
+      )
+    );
+
+    const appendStaticModelGroups = (
+      dropdown: any,
+      existing: Set<string>,
+      ordered: string[]
+    ) => {
+      const selectEl: HTMLSelectElement | undefined = dropdown?.selectEl;
+      if (!selectEl) return;
+
+      for (const group of STATIC_MODEL_GROUPS) {
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = group.label;
+        let added = false;
+
+        for (const model of group.models) {
+          if (existing.has(model)) continue;
+          existing.add(model);
+          ordered.push(model);
+          const option = document.createElement("option");
+          option.value = model;
+          option.text = model;
+          optgroup.appendChild(option);
+          added = true;
+        }
+
+        if (added) {
+          selectEl.appendChild(optgroup);
+        }
+      }
+    };
 
     const showModelsWarning = (el: HTMLElement) => {
       el.empty();
-      const isLM = this.plugin.settings.provider === "lmstudio";
-      if (isLM) {
+      const provider = this.plugin.settings.provider;
+      if (provider === "lmstudio") {
         const note = el.createEl("div", {
           text: "Could not load models from LM Studio. ",
         });
@@ -872,6 +941,12 @@ class SerendipitySettingTab extends PluginSettingTab {
           text: "LM Studio",
           attr: { href: "https://lmstudio.ai" },
         });
+        note.addClass("setting-item-description");
+      } else if (provider === "openai") {
+        const note = el.createEl("div", {
+          text: "Could not load models from your OpenAI-compatible server. ",
+        });
+        note.appendText("Check the base URL and whether the endpoint requires an API key.");
         note.addClass("setting-item-description");
       } else {
         const note = el.createEl("div", {
@@ -907,37 +982,68 @@ class SerendipitySettingTab extends PluginSettingTab {
       // Chat dropdown
       if (chatModelDropdown && chatModelDropdown.selectEl) {
         chatModelDropdown.selectEl.empty();
-        if (ok) {
-          for (const m of models) chatModelDropdown.addOption(m, m);
+        const used = new Set<string>();
+        const ordered: string[] = [];
+
+        if (ok && models.length > 0) {
+          for (const m of models) {
+            if (used.has(m)) continue;
+            chatModelDropdown.addOption(m, m);
+            used.add(m);
+            ordered.push(m);
+          }
           chatModelDropdown.selectEl.disabled = false;
           if (chatHelpEl) clearWarning(chatHelpEl);
-          const preferred = this.plugin.settings.defaultChatModel;
-          if (preferred && models.includes(preferred))
-            chatModelDropdown.setValue(preferred);
-          else chatModelDropdown.setValue(models[0]);
         } else {
+          if (chatHelpEl) showModelsWarning(chatHelpEl);
+        }
+
+        appendStaticModelGroups(chatModelDropdown, used, ordered);
+
+        if (ordered.length === 0) {
           chatModelDropdown.addOption("", "No models found");
           chatModelDropdown.setValue("");
           chatModelDropdown.selectEl.disabled = true;
-          if (chatHelpEl) showModelsWarning(chatHelpEl);
+        } else {
+          chatModelDropdown.selectEl.disabled = false;
+          const preferred = this.plugin.settings.defaultChatModel;
+          const selection =
+            preferred && ordered.includes(preferred) ? preferred : ordered[0];
+          chatModelDropdown.setValue(selection);
         }
       }
+
       // Edit dropdown
       if (editModelDropdown && editModelDropdown.selectEl) {
         editModelDropdown.selectEl.empty();
-        if (ok) {
-          for (const m of models) editModelDropdown.addOption(m, m);
+        const used = new Set<string>();
+        const ordered: string[] = [];
+
+        if (ok && models.length > 0) {
+          for (const m of models) {
+            if (used.has(m)) continue;
+            editModelDropdown.addOption(m, m);
+            used.add(m);
+            ordered.push(m);
+          }
           editModelDropdown.selectEl.disabled = false;
           if (editHelpEl) clearWarning(editHelpEl);
-          const preferred = this.plugin.settings.defaultEditModel;
-          if (preferred && models.includes(preferred))
-            editModelDropdown.setValue(preferred);
-          else editModelDropdown.setValue(models[0]);
         } else {
+          if (editHelpEl) showModelsWarning(editHelpEl);
+        }
+
+        appendStaticModelGroups(editModelDropdown, used, ordered);
+
+        if (ordered.length === 0) {
           editModelDropdown.addOption("", "No models found");
           editModelDropdown.setValue("");
           editModelDropdown.selectEl.disabled = true;
-          if (editHelpEl) showModelsWarning(editHelpEl);
+        } else {
+          editModelDropdown.selectEl.disabled = false;
+          const preferred = this.plugin.settings.defaultEditModel;
+          const selection =
+            preferred && ordered.includes(preferred) ? preferred : ordered[0];
+          editModelDropdown.setValue(selection);
         }
       }
     };
@@ -947,6 +1053,8 @@ class SerendipitySettingTab extends PluginSettingTab {
       const baseUrlRaw =
         provider === "lmstudio"
           ? this.plugin.settings.lmStudioUrl || "http://localhost:1234"
+          : provider === "openai"
+          ? this.plugin.settings.openAIUrl || "http://localhost:8080"
           : this.plugin.settings.ollamaUrl || "http://localhost:11434";
       const baseUrl = baseUrlRaw.replace(/\/$/, "");
       const cache = (this.plugin as any)._modelsCache;
@@ -979,8 +1087,12 @@ class SerendipitySettingTab extends PluginSettingTab {
 
       let models: string[] = [];
       let ok = false;
+      const fallbackModels =
+        provider === "ollama"
+          ? ["gemma3n:e2b", "llama3.1:8b", "qwen2.5:7b"]
+          : STATIC_MODEL_LIST;
       try {
-        if (provider === "lmstudio") {
+        if (provider === "lmstudio" || provider === "openai") {
           // Prefer Obsidian requestUrl to avoid CORS issues
           let text: string | null = null;
           try {
@@ -1026,7 +1138,7 @@ class SerendipitySettingTab extends PluginSettingTab {
               .filter(Boolean);
             ok = models.length > 0;
           }
-        } else {
+        } else if (provider === "ollama") {
           const resp = await fetch(`${baseUrl}/api/tags`);
           if (resp.ok) {
             const data = await resp.json();
@@ -1040,6 +1152,14 @@ class SerendipitySettingTab extends PluginSettingTab {
         }
       } catch (_e) {}
 
+      if (!ok && fallbackModels.length > 0) {
+        console.warn(
+          `Falling back to default model list for provider "${provider}".`
+        );
+        models = fallbackModels;
+        ok = true;
+      }
+
       populateFromModels(models, ok);
       if (ok) {
         (this.plugin as any)._modelsCache = { provider, baseUrl, models };
@@ -1048,13 +1168,20 @@ class SerendipitySettingTab extends PluginSettingTab {
     };
 
     const updateProviderVisibility = () => {
-      const isLM = this.plugin.settings.provider === "lmstudio";
+      const current = this.plugin.settings.provider;
+      const showOllama = current === "ollama";
+      const showLM = current === "lmstudio";
+      const showOpenAI = current === "openai";
       (ollamaUrlSetting as any)?.settingEl &&
-        ((ollamaUrlSetting as any).settingEl.style.display = isLM
-          ? "none"
-          : "");
+        ((ollamaUrlSetting as any).settingEl.style.display = showOllama
+          ? ""
+          : "none");
       (lmStudioUrlSetting as any)?.settingEl &&
-        ((lmStudioUrlSetting as any).settingEl.style.display = isLM
+        ((lmStudioUrlSetting as any).settingEl.style.display = showLM
+          ? ""
+          : "none");
+      (openAIUrlSetting as any)?.settingEl &&
+        ((openAIUrlSetting as any).settingEl.style.display = showOpenAI
           ? ""
           : "none");
     };
@@ -1068,14 +1195,19 @@ class SerendipitySettingTab extends PluginSettingTab {
           // Provider selector
           new Setting(container)
             .setName("LLM Provider")
-            .setDesc("Choose which local LLM server to use.")
+            .setDesc("Choose which LLM server to use.")
             .addDropdown((drop: any) => {
               drop.addOption("ollama", "Ollama");
               drop.addOption("lmstudio", "LM Studio");
+              drop.addOption("openai", "OpenAI-compatible");
               drop.setValue(this.plugin.settings.provider || "ollama");
               drop.onChange(async (value: string) => {
                 this.plugin.settings.provider =
-                  value === "lmstudio" ? "lmstudio" : "ollama";
+                  value === "lmstudio"
+                    ? "lmstudio"
+                    : value === "openai"
+                    ? "openai"
+                    : "ollama";
                 await this.plugin.saveSettings();
                 // Update DiscoverView instances with new provider
                 this.plugin.refreshAllDiscoverViewProviderSettings();
@@ -1133,6 +1265,33 @@ class SerendipitySettingTab extends PluginSettingTab {
                   // Update DiscoverView instances with new URL
                   this.plugin.refreshAllDiscoverViewProviderSettings();
                   // Debounce reload of available models for dropdowns
+                  if (modelsReloadTimer) {
+                    window.clearTimeout(modelsReloadTimer);
+                  }
+                  modelsReloadTimer = window.setTimeout(async () => {
+                    try {
+                      await loadModelsAndPopulate(true);
+                    } catch {}
+                  }, 600);
+                })
+            );
+
+          // OpenAI-compatible Base URL
+          openAIUrlSetting = new Setting(container)
+            .setName("OpenAI-Compatible Base URL")
+            .setDesc(
+              "Base URL for OpenAI-compatible APIs (e.g., OpenAI, OpenRouter, Together, local proxies)."
+            )
+            .addText((text) =>
+              text
+                .setPlaceholder("http://localhost:8080")
+                .setValue(
+                  this.plugin.settings.openAIUrl || "http://localhost:8080"
+                )
+                .onChange(async (value) => {
+                  this.plugin.settings.openAIUrl = value;
+                  await this.plugin.saveSettings();
+                  this.plugin.refreshAllDiscoverViewProviderSettings();
                   if (modelsReloadTimer) {
                     window.clearTimeout(modelsReloadTimer);
                   }

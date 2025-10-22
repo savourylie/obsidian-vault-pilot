@@ -4,8 +4,9 @@ export interface EditModalOptions {
 	selection: string;
 	file: TFile;
 	ollamaUrl?: string;
-	provider?: 'ollama' | 'lmstudio';
+	provider?: 'ollama' | 'lmstudio' | 'openai';
 	lmStudioUrl?: string;
+	openAIUrl?: string;
 	onSubmit: (instruction: string, model: string) => Promise<void>;
 	// Optional custom presets supplied by settings
 	presets?: Record<string, string>;
@@ -20,6 +21,20 @@ const DEFAULT_PRESETS = {
 	grammar: 'Fix grammar, spelling, and punctuation errors.',
 	translate: 'Translate this text to Spanish.',
 };
+
+const OPENAI_COMPAT_FALLBACK_MODELS = [
+	'gpt-5-chat-latest',
+	'gpt-5-mini',
+	'gpt-5-nano',
+	'gemini-2.5-pro',
+	'gemini-2.5-flash-lite',
+	'grok-4',
+	'grok-4-fast',
+	'grok-code-fast-1',
+	'grok-3-mini',
+	'qwen3-max',
+	'qwen-plus',
+];
 
 /**
  * Modal for AI-powered text editing.
@@ -186,11 +201,44 @@ export class EditModal extends Modal {
 
 	private async loadModels() {
 		const provider = this.options.provider || 'ollama';
-		const fallback = ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b'];
+		const fallback = provider === 'ollama'
+			? ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b']
+			: OPENAI_COMPAT_FALLBACK_MODELS;
 		let models: string[] = [];
 		try {
 			if (provider === 'lmstudio') {
 				const baseUrl = (this.options.lmStudioUrl || 'http://localhost:1234').replace(/\/$/, '');
+				let text: string | null = null;
+				try {
+					const r: any = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
+					text = r?.text ?? (r?.json ? JSON.stringify(r.json) : r?.data) ?? null;
+				} catch (_e) {
+					try {
+						const resp = await fetch(`${baseUrl}/v1/models`);
+						if (resp.ok) text = await resp.text();
+					} catch {}
+				}
+
+				if (text) {
+					let data: any = null;
+					try { data = JSON.parse(text); } catch {
+						const start = text.indexOf('{');
+						const end = text.lastIndexOf('}');
+						if (start !== -1 && end !== -1 && end > start) {
+							try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
+						}
+					}
+					const arr: any[] = Array.isArray(data?.data)
+						? data.data
+						: Array.isArray(data?.models)
+							? data.models
+							: Array.isArray(data)
+								? data
+								: [];
+					models = arr.map((m: any) => (typeof m === 'string' ? m : (m?.id || m?.name || m?.model))).filter(Boolean);
+				}
+			} else if (provider === 'openai') {
+				const baseUrl = (this.options.openAIUrl || 'http://localhost:8080').replace(/\/$/, '');
 				let text: string | null = null;
 				try {
 					const r: any = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
