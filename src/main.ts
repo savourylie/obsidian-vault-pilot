@@ -44,6 +44,8 @@ interface SerendipityPluginSettings {
   ollamaUrl: string;
   lmStudioUrl: string;
   openAIUrl: string;
+  openAIApiKey: string;
+  openAITemperature?: number;
   maxPromptTokens: number;
   reservedResponseTokens: number;
   recentMessagesToKeep: number;
@@ -69,6 +71,8 @@ const DEFAULT_SETTINGS: SerendipityPluginSettings = {
   ollamaUrl: "http://localhost:11434",
   lmStudioUrl: "http://localhost:1234",
   openAIUrl: "http://localhost:8080",
+  openAIApiKey: "",
+  openAITemperature: undefined,
   maxPromptTokens: 16384,
   reservedResponseTokens: 2048,
   recentMessagesToKeep: 6,
@@ -249,6 +253,8 @@ export default class SerendipityPlugin extends Plugin {
         this.settings.provider,
         this.settings.lmStudioUrl,
         this.settings.openAIUrl,
+        this.settings.openAIApiKey,
+        this.settings.openAITemperature,
         async (model: string) => {
           this.settings.defaultChatModel = model;
           await this.saveSettings();
@@ -344,6 +350,8 @@ export default class SerendipityPlugin extends Plugin {
             ollamaUrl: this.settings.ollamaUrl,
             lmStudioUrl: this.settings.lmStudioUrl,
             openAIUrl: this.settings.openAIUrl,
+            openAIApiKey: this.settings.openAIApiKey,
+            openAITemperature: this.settings.openAITemperature,
             defaultModel: model,
           });
           suggestions = await suggestTags(
@@ -664,6 +672,8 @@ export default class SerendipityPlugin extends Plugin {
           this.settings.ollamaUrl,
           this.settings.lmStudioUrl,
           this.settings.openAIUrl,
+          this.settings.openAIApiKey,
+          this.settings.openAITemperature,
           this.settings.defaultChatModel
         );
       }
@@ -751,6 +761,8 @@ export default class SerendipityPlugin extends Plugin {
         ollamaUrl: this.settings.ollamaUrl,
         lmStudioUrl: this.settings.lmStudioUrl,
         openAIUrl: this.settings.openAIUrl,
+        openAIApiKey: this.settings.openAIApiKey,
+        openAITemperature: this.settings.openAITemperature,
         defaultModel: this.settings.defaultEditModel,
       });
       const chunks: string[] = [];
@@ -876,6 +888,8 @@ class SerendipitySettingTab extends PluginSettingTab {
     let ollamaUrlSetting: any = null;
     let lmStudioUrlSetting: any = null;
     let openAIUrlSetting: any = null;
+    let openAIApiKeySetting: any = null;
+    let openAITemperatureSetting: any = null;
 
     const STATIC_MODEL_GROUPS: Array<{ label: string; models: string[] }> = [
       {
@@ -1099,20 +1113,33 @@ class SerendipitySettingTab extends PluginSettingTab {
       try {
         if (provider === "lmstudio" || provider === "openai") {
           // Prefer Obsidian requestUrl to avoid CORS issues
+          const modelsUrl =
+            provider === "openai"
+              ? baseUrl.endsWith("/v1/models")
+                ? baseUrl
+                : baseUrl.endsWith("/v1")
+                ? `${baseUrl}/models`
+                : `${baseUrl}/v1/models`
+              : `${baseUrl}/v1/models`;
+          const headers: Record<string, string> = {};
+          if (provider === "openai" && this.plugin.settings.openAIApiKey) {
+            headers.Authorization = `Bearer ${this.plugin.settings.openAIApiKey}`;
+          }
           let text: string | null = null;
           try {
             const r = await requestUrl({
-              url: `${baseUrl}/v1/models`,
+              url: modelsUrl,
               method: "GET",
+              headers,
             });
             text =
-              (r as any)?.text ?? r?.json
+              (r as any)?.text ?? ((r as any)?.json
                 ? JSON.stringify((r as any).json)
-                : (r as any)?.data ?? null;
+                : (r as any)?.data) ?? null;
           } catch (_err) {
             // Fallback to fetch
             try {
-              const resp = await fetch(`${baseUrl}/v1/models`);
+              const resp = await fetch(modelsUrl, { headers });
               if (resp.ok) text = await resp.text();
             } catch {}
           }
@@ -1187,6 +1214,14 @@ class SerendipitySettingTab extends PluginSettingTab {
           : "none");
       (openAIUrlSetting as any)?.settingEl &&
         ((openAIUrlSetting as any).settingEl.style.display = showOpenAI
+          ? ""
+          : "none");
+      (openAIApiKeySetting as any)?.settingEl &&
+        ((openAIApiKeySetting as any).settingEl.style.display = showOpenAI
+          ? ""
+          : "none");
+      (openAITemperatureSetting as any)?.settingEl &&
+        ((openAITemperatureSetting as any).settingEl.style.display = showOpenAI
           ? ""
           : "none");
     };
@@ -1307,6 +1342,62 @@ class SerendipitySettingTab extends PluginSettingTab {
                   }, 600);
                 })
             );
+
+          // OpenAI-compatible API Key (optional, shown when provider = openai)
+          openAIApiKeySetting = new Setting(container)
+            .setName("API Key (Optional)")
+            .setDesc(
+              "Optional API key for authentication. Only sent to the configured base URL above. Leave empty if your endpoint doesn't require authentication."
+            )
+            .addText((text) => {
+              text
+                .setPlaceholder("sk-...")
+                .setValue(this.plugin.settings.openAIApiKey || "")
+                .onChange(async (value) => {
+                  this.plugin.settings.openAIApiKey = value;
+                  await this.plugin.saveSettings();
+                  this.plugin.refreshAllDiscoverViewProviderSettings();
+                });
+              // Make it a password field to mask the key
+              (text.inputEl as HTMLInputElement).type = "password";
+              return text;
+            });
+
+          // OpenAI-compatible Temperature (optional, shown when provider = openai)
+          openAITemperatureSetting = new Setting(container)
+            .setName("Temperature (Optional)")
+            .setDesc(
+              "Temperature for requests (0-2). Leave blank to use model default. Required blank for GPT-5 and some other models that don't support custom temperature."
+            )
+            .addText((text) => {
+              text
+                .setPlaceholder("Leave blank for model default")
+                .setValue(
+                  this.plugin.settings.openAITemperature !== undefined
+                    ? this.plugin.settings.openAITemperature.toString()
+                    : ""
+                )
+                .onChange(async (value) => {
+                  const trimmed = value.trim();
+                  if (trimmed === "") {
+                    this.plugin.settings.openAITemperature = undefined;
+                  } else {
+                    const num = parseFloat(trimmed);
+                    if (!isNaN(num) && num >= 0 && num <= 2) {
+                      this.plugin.settings.openAITemperature = num;
+                    } else {
+                      // Invalid value, show warning
+                      console.warn(
+                        `VaultPilot: Invalid temperature value "${trimmed}". Must be between 0 and 2.`
+                      );
+                      return; // Don't save invalid value
+                    }
+                  }
+                  await this.plugin.saveSettings();
+                  this.plugin.refreshAllDiscoverViewProviderSettings();
+                });
+              return text;
+            });
 
           updateProviderVisibility();
 

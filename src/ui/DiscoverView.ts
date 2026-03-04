@@ -42,6 +42,8 @@ export class DiscoverView extends ItemView {
 	private ollamaUrl: string = 'http://localhost:11434';
 	private lmStudioUrl: string = 'http://localhost:1234';
 	private openAIUrl: string = 'http://localhost:8080';
+	private openAIApiKey: string = '';
+	private openAITemperature?: number;
 	private provider: 'ollama' | 'lmstudio' | 'openai' = 'ollama';
 	private defaultChatModel: string | null = null;
 	private contextChipsContainer: HTMLElement | null = null;
@@ -65,6 +67,8 @@ export class DiscoverView extends ItemView {
 		provider?: 'ollama' | 'lmstudio' | 'openai',
 		lmStudioUrl?: string,
 		openAIUrl?: string,
+		openAIApiKey?: string,
+		openAITemperature?: number,
 		onModelChange?: (model: string) => Promise<void>
 	) {
 		super(leaf);
@@ -75,6 +79,8 @@ export class DiscoverView extends ItemView {
 		this.ollamaUrl = ollamaUrl || 'http://localhost:11434';
 		this.lmStudioUrl = lmStudioUrl || 'http://localhost:1234';
 		this.openAIUrl = openAIUrl || 'http://localhost:8080';
+		this.openAIApiKey = openAIApiKey || '';
+		this.openAITemperature = openAITemperature;
 		this.provider = provider || 'ollama';
 		this.defaultChatModel = defaultChatModel || null;
 		const adapter = createAdapter({
@@ -82,6 +88,8 @@ export class DiscoverView extends ItemView {
 			ollamaUrl: this.ollamaUrl,
 			lmStudioUrl: this.lmStudioUrl,
 			openAIUrl: this.openAIUrl,
+			openAIApiKey: this.openAIApiKey,
+			openAITemperature: this.openAITemperature,
 			defaultModel: this.defaultChatModel || undefined,
 		});
 		this.chatService = new ChatService(adapter, chatOptions);
@@ -538,48 +546,63 @@ export class DiscoverView extends ItemView {
 
 		if (!this.modelSelectEl) return;
 
-		let models: string[] = [];
-		const fallback = provider === 'ollama'
-			? ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b']
-			: OPENAI_COMPAT_FALLBACK_MODELS;
-		try {
-			if (provider === 'lmstudio' || provider === 'openai') {
-				const baseUrl = provider === 'lmstudio'
-					? this.lmStudioUrl.replace(/\/$/, '')
-					: this.openAIUrl.replace(/\/$/, '');
-				let text: string | null = null;
-				try {
-					const r = await requestUrl({ url: `${baseUrl}/v1/models`, method: 'GET' });
-					text = (r as any)?.text ?? r?.json ? JSON.stringify((r as any).json) : (r as any)?.data ?? null;
-				} catch (_err) {
-					try {
-						const resp = await fetch(`${baseUrl}/v1/models`);
-						if (resp.ok) text = await resp.text();
-					} catch {}
-				}
-				if (text) {
-					let data: any = null;
-					try { data = JSON.parse(text); } catch {
-						const start = text.indexOf('{');
-						const end = text.lastIndexOf('}');
-						if (start !== -1 && end !== -1 && end > start) {
-							try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
-						}
+			let models: string[] = [];
+			const fallback = provider === 'ollama'
+				? ['gemma3n:e2b', 'llama3.1:8b', 'qwen2.5:7b']
+				: OPENAI_COMPAT_FALLBACK_MODELS;
+			try {
+				if (provider === 'lmstudio' || provider === 'openai') {
+					const baseUrl = provider === 'lmstudio'
+						? this.lmStudioUrl.replace(/\/$/, '')
+						: this.openAIUrl.replace(/\/$/, '');
+					const modelsUrl = provider === 'openai'
+						? baseUrl.endsWith('/v1/models')
+							? baseUrl
+							: baseUrl.endsWith('/v1')
+								? `${baseUrl}/models`
+								: `${baseUrl}/v1/models`
+						: `${baseUrl}/v1/models`;
+					const headers: Record<string, string> = {};
+					if (provider === 'openai' && this.openAIApiKey) {
+						headers.Authorization = `Bearer ${this.openAIApiKey}`;
 					}
-					const arr: any[] = Array.isArray((data as any)?.data)
-						? (data as any).data
-						: Array.isArray((data as any)?.models)
-							? (data as any).models
-							: Array.isArray(data)
-								? (data as any)
-								: [];
-					models = arr
-						.map((m: any) => typeof m === 'string' ? m : (m?.id || m?.name || m?.model))
-						.filter(Boolean);
-				}
-			} else if (provider === 'ollama') {
-				const resp = await fetch(`${this.ollamaUrl.replace(/\/$/, '')}/api/tags`);
-				if (resp.ok) {
+					let text: string | null = null;
+					try {
+						const r = await requestUrl({
+							url: modelsUrl,
+							method: 'GET',
+							headers,
+						});
+						text = (r as any)?.text ?? ((r as any)?.json ? JSON.stringify((r as any).json) : (r as any)?.data) ?? null;
+					} catch (_err) {
+						try {
+							const resp = await fetch(modelsUrl, { headers });
+							if (resp.ok) text = await resp.text();
+						} catch {}
+					}
+					if (text) {
+						let data: any = null;
+						try { data = JSON.parse(text); } catch {
+							const start = text.indexOf('{');
+							const end = text.lastIndexOf('}');
+							if (start !== -1 && end !== -1 && end > start) {
+								try { data = JSON.parse(text.slice(start, end + 1)); } catch {}
+							}
+						}
+						const arr: any[] = Array.isArray((data as any)?.data)
+							? (data as any).data
+							: Array.isArray((data as any)?.models)
+								? (data as any).models
+								: Array.isArray(data)
+									? (data as any)
+									: [];
+						models = arr
+							.map((m: any) => typeof m === 'string' ? m : (m?.id || m?.name || m?.model))
+							.filter(Boolean);
+					}
+				} else if (provider === 'ollama') {
+					const resp = await fetch(`${this.ollamaUrl.replace(/\/$/, '')}/api/tags`);
+					if (resp.ok) {
 					const data = await resp.json();
 					if (Array.isArray(data?.models)) {
 						models = data.models.map((m: any) => m.model || m.name).filter(Boolean);
@@ -634,6 +657,11 @@ export class DiscoverView extends ItemView {
 		// Build context from active file + attached files
 		const context = await this.buildContextFromAttachments();
 
+		const session = this.sessionManager?.getActiveSession();
+		const contextFilesCount = session?.contextFiles?.length ?? 0;
+
+		console.log(`VaultPilot [DiscoverView]: Sending message - Provider: ${this.provider}, Message length: ${message.length}, Context length: ${context.length}, Context files: ${contextFilesCount}`);
+
 		// Clear input
 		this.chatInputEl.value = '';
 
@@ -674,23 +702,42 @@ export class DiscoverView extends ItemView {
 				await this.onSessionSave();
 			}
 		} catch (err) {
-			console.error('Chat error:', err);
+			const errorMsg = (err instanceof Error ? err.message : 'Unknown error') || '';
+			console.error(`VaultPilot [DiscoverView]: Chat error - Provider: ${this.provider}, Error:`, err);
+			console.error(`VaultPilot [DiscoverView]: Error details - Message: "${errorMsg}", Stack:`, (err as Error)?.stack);
+
 			this.hideTypingIndicator();
-			const errorMsg = this.addMessageToUI('assistant', '');
-			const errorContent = errorMsg.querySelector('.vp-chat-message-content') as HTMLElement;
+			const errorMsgEl = this.addMessageToUI('assistant', '');
+			const errorContent = errorMsgEl.querySelector('.vp-chat-message-content') as HTMLElement;
 			if (errorContent) {
 				errorContent.empty();
-				const msg = (err instanceof Error ? err.message : 'Unknown error') || '';
-				const isConnErr = /fetch|network|failed|ECONN|connection|refused|CORS/i.test(msg);
+				const isConnErr = /fetch|network|failed|ECONN|connection|refused|CORS/i.test(errorMsg);
+				const isCorsErr = /CORS|Access-Control-Allow-Origin/i.test(errorMsg);
+
 				if (isConnErr) {
-					const friendly = this.provider === 'lmstudio'
-						? 'Could not connect to LM Studio. Is Local Server enabled?'
+					const providerUrl = this.provider === 'lmstudio'
+						? this.lmStudioUrl
 						: this.provider === 'openai'
-							? 'Could not connect to the OpenAI-compatible server. Check your base URL.'
-							: 'Could not connect to Ollama. Is it running?';
+							? this.openAIUrl
+							: this.ollamaUrl;
+
+					let friendly = '';
+					if (isCorsErr) {
+						friendly = this.provider === 'openai'
+							? `CORS blocked: ${this.openAIUrl} doesn't allow Obsidian requests.\n\nCheck console for solutions (local proxy, different provider, etc.)`
+							: `CORS error connecting to ${providerUrl}. Check console for details.`;
+						} else {
+							friendly = this.provider === 'lmstudio'
+								? 'Could not connect to LM Studio. Is Local Server enabled?'
+								: this.provider === 'openai'
+									? `Could not connect to OpenAI-compatible server.\n\nCommon issues:\n• Wrong base URL or endpoint path\n• CORS policy\n• Invalid API key\n• Server not running\n\nCheck console (F12) for details.`
+								: 'Could not connect to Ollama. Is it running?';
+						}
+
+					console.error(`VaultPilot [DiscoverView]: Connection error to ${providerUrl}`);
 					errorContent.textContent = `⚠️ ${friendly}`;
 				} else {
-					errorContent.textContent = 'Error: ' + (msg || 'Unknown error');
+					errorContent.textContent = 'Error: ' + (errorMsg || 'Unknown error');
 				}
 			}
 		}
@@ -1114,6 +1161,8 @@ export class DiscoverView extends ItemView {
 		ollamaUrl: string,
 		lmStudioUrl: string,
 		openAIUrl: string,
+		openAIApiKey: string,
+		openAITemperature: number | undefined,
 		defaultChatModel?: string | null
 	) {
 		// Update instance variables
@@ -1122,6 +1171,8 @@ export class DiscoverView extends ItemView {
 		this.ollamaUrl = ollamaUrl;
 		this.lmStudioUrl = lmStudioUrl;
 		this.openAIUrl = openAIUrl;
+		this.openAIApiKey = openAIApiKey;
+		this.openAITemperature = openAITemperature;
 		this.defaultChatModel = defaultChatModel || null;
 
 		// If the user hadn't customized the persisted chat model, align it with the new default
@@ -1143,6 +1194,8 @@ export class DiscoverView extends ItemView {
 			ollamaUrl: this.ollamaUrl,
 			lmStudioUrl: this.lmStudioUrl,
 			openAIUrl: this.openAIUrl,
+			openAIApiKey: this.openAIApiKey,
+			openAITemperature: this.openAITemperature,
 			defaultModel: this.defaultChatModel || undefined,
 		});
 

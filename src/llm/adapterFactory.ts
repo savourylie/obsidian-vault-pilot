@@ -10,6 +10,8 @@ export interface AdapterFactoryOptions {
 	ollamaUrl?: string;
 	lmStudioUrl?: string;
 	openAIUrl?: string;
+	openAIApiKey?: string;
+	openAITemperature?: number;
 	defaultModel?: string;
 }
 
@@ -29,7 +31,12 @@ export function createAdapter(opts: AdapterFactoryOptions): LLMAdapter {
 	}
 
 	if (provider === 'openai') {
-		return new OpenAIAdapter(opts.openAIUrl || 'http://localhost:8080', defaultModel);
+		return new OpenAIAdapter(
+			opts.openAIUrl || 'http://localhost:8080',
+			defaultModel,
+			opts.openAIApiKey,
+			opts.openAITemperature
+		);
 	}
 
 	return new OllamaAdapter(opts.ollamaUrl || 'http://localhost:11434', defaultModel);

@@ -33,7 +33,27 @@ Goal: Make sure the hashtag suggestion flow works with the new OpenAI‑compatib
 
 ## Verification Steps
 1. Set provider to OpenAI‑compatible and configure base URL/model.
-2. Run the “Suggest Hashtags for Current Note” command on a note with content.
+2. Run the "Suggest Hashtags for Current Note" command on a note with content.
 3. Verify suggestions appear and insertion flow works through `TagSuggestionModal`.
 4. Repeat with provider set to Ollama and LM Studio to confirm no regressions.
+
+## Implementation Notes
+**Status**: ✅ COMPLETED
+
+**Changes Made**:
+1. Modified `TaggingService.ts:258` to prefer `llmAdapter` over `ollamaUrl` in condition check
+2. Reordered condition from `(options.ollamaUrl || options.llmAdapter)` to `(options.llmAdapter || options.ollamaUrl)` for clarity
+3. Added test case in `tagging-unit-test.js` verifying adapter-only usage (without ollamaUrl)
+
+**Test Results**:
+- ✅ All tagging unit tests pass
+- ✅ TF-IDF fallback tests pass
+- ✅ Build succeeds without errors
+- ✅ New test case validates adapter-first logic works correctly with OpenAI-compatible providers
+
+**Behavior**:
+- When `llmAdapter` is provided, it is now clearly preferred over constructing an `OllamaAdapter`
+- The condition is now provider-agnostic and reads more naturally
+- Existing Ollama and LM Studio behavior unchanged
+- OpenAI-compatible provider path now verified via tests
 

@@ -255,7 +255,7 @@ export async function suggestTags(
 		max,
 	});
 
-	if (options.useLLM && (options.ollamaUrl || options.llmAdapter)) {
+	if (options.useLLM && (options.llmAdapter || options.ollamaUrl)) {
 		try {
 			const adapter: LLMAdapter = options.llmAdapter || new OllamaAdapter(options.ollamaUrl, options.model || 'gemma3n:e2b');
 			const excerpt = (content || '').slice(0, 4000);

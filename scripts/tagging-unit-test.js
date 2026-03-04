@@ -120,6 +120,25 @@ function run() {
     }, new Set(['#project-x']));
     assert(suggestions3.length >= 3, 'stub non-hashtag fallback met min');
     for (const t of suggestions3) assert(/^#[a-z0-9][a-z0-9-]*$/.test(t), 'normalized hashtag');
+
+    // LLM adapter with hashtag output (no ollamaUrl) -> should use adapter
+    const hashtagAdapter = {
+      async generate() {
+        return '#machine-learning #artificial-intelligence #data-science';
+      },
+      async stream() { /* not used */ },
+    };
+    const suggestions4 = await svc.suggestTags(app, 'Introduction to machine learning and AI', {
+      useLLM: true,
+      llmAdapter: hashtagAdapter,
+      // Intentionally omit ollamaUrl to verify adapter is preferred
+      minSuggestions: 2,
+      maxSuggestions: 5,
+    }, new Set());
+    assert(suggestions4.length >= 2, 'adapter-only returned suggestions');
+    assert(suggestions4.includes('#machine-learning'), 'hashtag adapter returned expected tag');
+    assert(suggestions4.includes('#artificial-intelligence'), 'hashtag adapter returned AI tag');
+    for (const t of suggestions4) assert(/^#[a-z0-9][a-z0-9-]*$/.test(t), 'adapter tags normalized');
   });
 }
 

@@ -75,31 +75,41 @@ export class ChatService {
 		onChunk: (chunk: string) => void,
 		onStats?: (stats: StreamStats) => void
 	): Promise<void> {
+		console.log(`VaultPilot [ChatService]: sendMessage called - User message length: ${userMessage.length}, Context length: ${context.length}, History length: ${this.messages.length}`);
+
 		// Add user message to history
 		this.messages.push({ role: 'user', content: userMessage });
 
 		// Compact history if needed (token windowing)
 		await this.compactHistoryIfNeeded(context);
+		console.log(`VaultPilot [ChatService]: After compaction - History length: ${this.messages.length}`);
 
 		// Build prompt with context
 		const prompt = this.buildPrompt(userMessage, context);
+		console.log(`VaultPilot [ChatService]: Built prompt - Total length: ${prompt.length} chars, Model: ${this.currentModel || 'default'}`);
 
 		// Stream response
 		const responseChunks: string[] = [];
-		await this.adapter.stream(prompt, (chunk) => {
-			responseChunks.push(chunk);
-			onChunk(chunk);
-		}, {
-			model: this.currentModel || undefined,
-			onStats
-		});
+		try {
+			await this.adapter.stream(prompt, (chunk) => {
+				responseChunks.push(chunk);
+				onChunk(chunk);
+			}, {
+				model: this.currentModel || undefined,
+				onStats
+			});
 
-		// Add assistant response to history
-		const fullResponse = responseChunks.join('');
-		this.messages.push({ role: 'assistant', content: fullResponse });
+			// Add assistant response to history
+			const fullResponse = responseChunks.join('');
+			console.log(`VaultPilot [ChatService]: Received complete response - Length: ${fullResponse.length} chars, Chunks: ${responseChunks.length}`);
+			this.messages.push({ role: 'assistant', content: fullResponse });
 
-		// Auto-save to session if session manager is set
-		this.saveToSession();
+			// Auto-save to session if session manager is set
+			this.saveToSession();
+		} catch (err) {
+			console.error(`VaultPilot [ChatService]: Error during stream:`, err);
+			throw err; // Re-throw to let UI handle it
+		}
 	}
 
 	/**
