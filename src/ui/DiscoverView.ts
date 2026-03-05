@@ -3,6 +3,7 @@ import { RetrievalService } from '../services/RetrievalService';
 import { ChatService, ChatServiceOptions } from '../services/ChatService';
 import { createAdapter } from '../llm/adapterFactory';
 import { SessionManager } from '../services/SessionManager';
+import type { LLMProvider } from '../types/llm';
 import { NoteSearchModal } from './NoteSearchModal';
 import anime from 'animejs';
 
@@ -44,7 +45,8 @@ export class DiscoverView extends ItemView {
 	private openAIUrl: string = 'http://localhost:8080';
 	private openAIApiKey: string = '';
 	private openAITemperature?: number;
-	private provider: 'ollama' | 'lmstudio' | 'openai' = 'ollama';
+	private provider: LLMProvider = 'ollama';
+	private activeLLMProfileId: string = 'default';
 	private defaultChatModel: string | null = null;
 	private contextChipsContainer: HTMLElement | null = null;
 	private atMentionPopover: HTMLElement | null = null;
@@ -64,13 +66,14 @@ export class DiscoverView extends ItemView {
 		onSessionSave?: () => Promise<void>,
 		chatOptions?: ChatServiceOptions,
 		defaultChatModel?: string,
-		provider?: 'ollama' | 'lmstudio' | 'openai',
-		lmStudioUrl?: string,
-		openAIUrl?: string,
-		openAIApiKey?: string,
-		openAITemperature?: number,
-		onModelChange?: (model: string) => Promise<void>
-	) {
+			provider?: LLMProvider,
+			lmStudioUrl?: string,
+			openAIUrl?: string,
+			openAIApiKey?: string,
+			openAITemperature?: number,
+			activeLLMProfileId?: string,
+			onModelChange?: (model: string) => Promise<void>
+		) {
 		super(leaf);
 		this.retrieval = retrieval ?? null;
 		this.sessionManager = sessionManager ?? null;
@@ -79,10 +82,11 @@ export class DiscoverView extends ItemView {
 		this.ollamaUrl = ollamaUrl || 'http://localhost:11434';
 		this.lmStudioUrl = lmStudioUrl || 'http://localhost:1234';
 		this.openAIUrl = openAIUrl || 'http://localhost:8080';
-		this.openAIApiKey = openAIApiKey || '';
-		this.openAITemperature = openAITemperature;
-		this.provider = provider || 'ollama';
-		this.defaultChatModel = defaultChatModel || null;
+			this.openAIApiKey = openAIApiKey || '';
+			this.openAITemperature = openAITemperature;
+			this.provider = provider || 'ollama';
+			this.activeLLMProfileId = activeLLMProfileId || 'default';
+			this.defaultChatModel = defaultChatModel || null;
 		const adapter = createAdapter({
 			provider: this.provider,
 			ollamaUrl: this.ollamaUrl,
@@ -624,10 +628,8 @@ export class DiscoverView extends ItemView {
 		// Preselect from localStorage or first option
 		let selected = '';
 		try {
-			selected = localStorage.getItem('vp-selected-chat-model')
-				|| localStorage.getItem('vp-selected-model')
-				|| '';
-		} catch {}
+				selected = this.readPersistedChatModel();
+			} catch {}
 		if ((!selected || !models.includes(selected)) && this.defaultChatModel && models.includes(this.defaultChatModel)) {
 			selected = this.defaultChatModel;
 		}
@@ -644,8 +646,24 @@ export class DiscoverView extends ItemView {
 
 	private persistSelectedChatModel(model: string) {
 		try {
+			localStorage.setItem(this.getProfileScopedChatStorageKey(), model);
 			localStorage.setItem('vp-selected-chat-model', model);
 		} catch {}
+	}
+
+	private getProfileScopedChatStorageKey() {
+		return `vp-selected-chat-model:${this.activeLLMProfileId || 'default'}`;
+	}
+
+	private readPersistedChatModel() {
+		try {
+			return localStorage.getItem(this.getProfileScopedChatStorageKey())
+				|| localStorage.getItem('vp-selected-chat-model')
+				|| localStorage.getItem('vp-selected-model')
+				|| '';
+		} catch {
+			return '';
+		}
 	}
 
 	private async sendMessage() {
@@ -1157,32 +1175,32 @@ export class DiscoverView extends ItemView {
 	 * Called externally when settings change (e.g., from main.ts settings onChange).
 	 */
 	updateProviderSettings(
-		provider: 'ollama' | 'lmstudio' | 'openai',
-		ollamaUrl: string,
-		lmStudioUrl: string,
-		openAIUrl: string,
-		openAIApiKey: string,
-		openAITemperature: number | undefined,
-		defaultChatModel?: string | null
-	) {
+			provider: LLMProvider,
+			ollamaUrl: string,
+			lmStudioUrl: string,
+			openAIUrl: string,
+			openAIApiKey: string,
+			openAITemperature: number | undefined,
+			defaultChatModel?: string | null,
+			activeLLMProfileId?: string
+		) {
 		// Update instance variables
 		const previousDefault = this.defaultChatModel;
 		this.provider = provider;
 		this.ollamaUrl = ollamaUrl;
 		this.lmStudioUrl = lmStudioUrl;
-		this.openAIUrl = openAIUrl;
-		this.openAIApiKey = openAIApiKey;
-		this.openAITemperature = openAITemperature;
-		this.defaultChatModel = defaultChatModel || null;
+			this.openAIUrl = openAIUrl;
+			this.openAIApiKey = openAIApiKey;
+			this.openAITemperature = openAITemperature;
+			this.activeLLMProfileId = activeLLMProfileId || 'default';
+			this.defaultChatModel = defaultChatModel || null;
 
 		// If the user hadn't customized the persisted chat model, align it with the new default
 		if (this.defaultChatModel) {
 			let persisted = '';
 			try {
-				persisted = localStorage.getItem('vp-selected-chat-model')
-					|| localStorage.getItem('vp-selected-model')
-					|| '';
-			} catch {}
+					persisted = this.readPersistedChatModel();
+				} catch {}
 			if (!persisted || persisted === previousDefault) {
 				this.persistSelectedChatModel(this.defaultChatModel);
 			}

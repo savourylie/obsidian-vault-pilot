@@ -3,6 +3,21 @@
  * This ensures a consistent contract across different providers (Ollama, OpenAI, Claude, etc.).
  */
 
+export type LLMProvider = 'ollama' | 'lmstudio' | 'openai';
+
+export interface LLMProfile {
+	id: string;
+	name: string;
+	provider: LLMProvider;
+	ollamaUrl: string;
+	lmStudioUrl: string;
+	openAIUrl: string;
+	openAIApiKey: string;
+	openAITemperature?: number;
+	defaultChatModel: string;
+	defaultEditModel: string;
+}
+
 export interface StreamStats {
 	tokenCount: number;
 	tokensPerSecond: number;

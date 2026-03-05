@@ -1,12 +1,14 @@
 import { App, Modal, TFile, requestUrl } from "obsidian";
+import type { LLMProvider } from "../types/llm";
 
 export interface EditModalOptions {
   selection: string;
   file: TFile;
   ollamaUrl?: string;
-  provider?: "ollama" | "lmstudio" | "openai";
+  provider?: LLMProvider;
   lmStudioUrl?: string;
   openAIUrl?: string;
+  activeLLMProfileId?: string;
   onSubmit: (instruction: string, model: string) => Promise<void>;
   // Optional custom presets supplied by settings
   presets?: Record<string, string>;
@@ -110,14 +112,12 @@ export class EditModal extends Modal {
     if (this.options.provider === "openai") {
       modelRow.createEl("span", {
         cls: "vp-model-hint",
-        text: "Uses the default edit model from Settings → VaultPilot.",
+        text: "Uses the default edit model from the active LLM profile in Settings → VaultPilot.",
       });
     }
     this.modelSelect.addEventListener("change", () => {
       const m = this.modelSelect?.value || "";
-      try {
-        localStorage.setItem("vp-selected-edit-model", m);
-      } catch {}
+      this.persistSelectedEditModel(m);
       this.updateGenerateButton();
     });
     this.loadModels();
@@ -299,12 +299,7 @@ export class EditModal extends Modal {
 
     let selected = "";
     // Prefer the edit-specific key; fall back to legacy shared key
-    try {
-      selected =
-        localStorage.getItem("vp-selected-edit-model") ||
-        localStorage.getItem("vp-selected-model") ||
-        "";
-    } catch {}
+    selected = this.readPersistedEditModel();
 
     // If no prior selection or not available, try defaultModel from options
     if (
@@ -320,5 +315,29 @@ export class EditModal extends Modal {
       this.modelSelect.selectedIndex = 0;
     }
     this.modelSelect.disabled = false;
+  }
+
+  private getProfileScopedEditStorageKey() {
+    return `vp-selected-edit-model:${this.options.activeLLMProfileId || "default"}`;
+  }
+
+  private readPersistedEditModel() {
+    try {
+      return (
+        localStorage.getItem(this.getProfileScopedEditStorageKey()) ||
+        localStorage.getItem("vp-selected-edit-model") ||
+        localStorage.getItem("vp-selected-model") ||
+        ""
+      );
+    } catch {
+      return "";
+    }
+  }
+
+  private persistSelectedEditModel(model: string) {
+    try {
+      localStorage.setItem(this.getProfileScopedEditStorageKey(), model);
+      localStorage.setItem("vp-selected-edit-model", model);
+    } catch {}
   }
 }

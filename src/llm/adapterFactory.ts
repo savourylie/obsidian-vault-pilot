@@ -1,9 +1,7 @@
-import type { LLMAdapter } from '../types/llm';
+import type { LLMAdapter, LLMProvider } from '../types/llm';
 import { LMStudioAdapter } from './LMStudioAdapter';
 import { OpenAIAdapter } from './OpenAIAdapter';
 import { OllamaAdapter } from './OllamaAdapter';
-
-export type LLMProvider = 'ollama' | 'lmstudio' | 'openai';
 
 export interface AdapterFactoryOptions {
 	provider: LLMProvider;
